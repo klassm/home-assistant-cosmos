@@ -149,11 +149,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
 
                 result = await book_course(client, options)
-                _LOGGER.info("Successfully booked course: %s", course)
+
+                # Log booking result with full details
+                day_name = datetime.date(2024, 1, day).strftime(
+                    "%A"
+                )  # Convert day number to name
+                time_str = f"{hours:02d}:{minutes:02d}"
+                message = result.get("message", "")
+
+                if "already booked" in message.lower():
+                    _LOGGER.info(
+                        "Booking already done: %s on %s at %s - %s",
+                        course,
+                        day_name,
+                        time_str,
+                        message,
+                    )
+                else:
+                    _LOGGER.info(
+                        "Booking successful: %s on %s at %s - %s",
+                        course,
+                        day_name,
+                        time_str,
+                        message,
+                    )
+
                 return result
 
         except CosmosError as err:
-            _LOGGER.error("Booking failed: %s", err)
+            day_name = datetime.date(2024, 1, day).strftime("%A")
+            time_str = f"{hours:02d}:{minutes:02d}"
+            _LOGGER.error(
+                "Booking failed: %s on %s at %s - %s", course, day_name, time_str, err
+            )
             raise HomeAssistantError(f"Booking failed: {err}") from err
 
     # Register service

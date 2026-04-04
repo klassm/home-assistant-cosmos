@@ -10,6 +10,11 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
 from .api_client import CosmosClient
 from .config import load_config_from_dict
@@ -23,15 +28,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Required(CONF_MANDANT): str,
-    }
-)
-
-# Options schema for update interval
-OPTIONS_SCHEMA = vol.Schema(
-    {
-        vol.Optional("update_interval", default=5): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=60)
-        ),
     }
 )
 
@@ -128,8 +124,16 @@ class CosmosOptionsFlow(config_entries.OptionsFlow):
         current_interval = self.config_entry.options.get("update_interval", 5)
         return vol.Schema(
             {
-                vol.Optional("update_interval", default=current_interval): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=60)
+                vol.Optional(
+                    "update_interval", default=current_interval
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=1,
+                        max=60,
+                        step=1,
+                        mode=NumberSelectorMode.BOX,
+                        unit_of_measurement="minutes",
+                    )
                 ),
             }
         )

@@ -17,5 +17,19 @@
 			"unknown": "Unexpected error occurred"
 		}
 	},
+	"options": {
+		"step": {
+			"init": {
+				"title": "Cosmos Options",
+				"description": "Configure update interval and other settings",
+				"data": {
+					"update_interval": "Update Interval"
+				},
+				"data_description": {
+					"update_interval": "How often to fetch new data from Cosmos (in minutes)"
+				}
+			}
+		}
+	},
 	"title": "Cosmos"
 }

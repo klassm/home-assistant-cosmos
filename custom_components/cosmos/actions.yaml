@@ -11,7 +11,7 @@ book:
         text:
     day:
       name: Day
-      description: Day of the week
+      description: Day of the week (Mon-Sun or 1-7)
       required: true
       example: "Mon"
       selector:
@@ -31,3 +31,19 @@ book:
       example: "18:00"
       selector:
         text:
+  response:
+    success:
+      description: Whether the booking was successful
+      type: boolean
+    message:
+      description: Result message (e.g., "already booked", "booked successfully")
+      type: string
+    course:
+      description: The course name
+      type: string
+    day:
+      description: Day of the week (1-7)
+      type: integer
+    time:
+      description: Time in HH:MM format
+      type: string

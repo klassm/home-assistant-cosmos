@@ -17,5 +17,19 @@
 			"unknown": "Unerwarteter Fehler aufgetreten"
 		}
 	},
+	"options": {
+		"step": {
+			"init": {
+				"title": "Cosmos Optionen",
+				"description": "Aktualisierungsintervall und andere Einstellungen konfigurieren",
+				"data": {
+					"update_interval": "Aktualisierungsintervall"
+				},
+				"data_description": {
+					"update_interval": "Wie oft neue Daten von Cosmos abgerufen werden sollen (in Minuten)"
+				}
+			}
+		}
+	},
 	"title": "Cosmos"
 }
