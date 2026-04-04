@@ -103,26 +103,26 @@ jobs:
           print(f'Manifest validated: {manifest[\"name\"]} v{manifest[\"version\"]}')
           "
       
-      - name: Validate services.yaml
+      - name: Validate actions.yaml
         run: |
           python -c "
           import yaml
           import sys
           
-          with open('custom_components/cosmos/services.yaml') as f:
-              services = yaml.safe_load(f)
+          with open('custom_components/cosmos/actions.yaml') as f:
+              actions = yaml.safe_load(f)
           
-          if not services:
-              print('WARNING: No services defined in services.yaml')
+          if not actions:
+              print('WARNING: No actions defined in actions.yaml')
           else:
-              for service_name, service_def in services.items():
-                  if 'name' not in service_def:
-                      print(f'ERROR: Service {service_name} missing name field')
+              for action_name, action_def in actions.items():
+                  if 'name' not in action_def:
+                      print(f'ERROR: Action {action_name} missing name field')
                       sys.exit(1)
-                  if 'fields' not in service_def:
-                      print(f'WARNING: Service {service_name} has no fields defined')
+                  if 'fields' not in action_def:
+                      print(f'WARNING: Action {action_name} has no fields defined')
               
-              print(f'Services validated: {list(services.keys())}')
+              print(f'Actions validated: {list(actions.keys())}')
           "
       
       - name: Validate translations

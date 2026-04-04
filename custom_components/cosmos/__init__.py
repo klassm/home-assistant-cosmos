@@ -12,7 +12,7 @@ import voluptuous as vol
 # These are optional to allow standalone CLI usage
 try:
     from homeassistant.config_entries import ConfigEntry
-    from homeassistant.core import HomeAssistant, ServiceCall
+    from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
     from homeassistant.exceptions import HomeAssistantError
     from homeassistant.helpers import config_validation as cv
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -190,6 +190,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_BOOK,
         handle_book,
         schema=SERVICE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
     )
 
     _LOGGER.info("Cosmos integration setup complete")
