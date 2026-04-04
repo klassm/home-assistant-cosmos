@@ -1,0 +1,21 @@
+{
+	"config": {
+		"step": {
+			"user": {
+				"title": "Cosmos Einrichtung",
+				"description": "Geben Sie Ihre Cosmos Anmeldedaten ein",
+				"data": {
+					"username": "Benutzername",
+					"password": "Passwort",
+					"mandant": "Mandanten-ID"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Verbindung zu Cosmos fehlgeschlagen",
+			"invalid_auth": "Ungültiger Benutzername oder Passwort",
+			"unknown": "Unerwarteter Fehler aufgetreten"
+		}
+	},
+	"title": "Cosmos"
+}

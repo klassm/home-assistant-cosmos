@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: uv sync --extra dev
+      
+      - name: Run linting
+        run: uv run task lint
+
+      - name: Check formatting
+        run: uv run task format-check
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: uv sync --extra dev
+      
+      - name: Run tests
+        run: uv run task test
+      
+      - name: Upload coverage report
+        if: matrix.python-version == '3.9'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: .coverage
+          retention-days: 7
+
+  validate:
+    name: Validate Home Assistant Integration
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      
+      - name: Install validation dependencies
+        run: pip install pyyaml voluptuous
+      
+      - name: Validate manifest.json
+        run: |
+          python -c "
+          import json
+          import sys
+          
+          with open('custom_components/cosmos/manifest.json') as f:
+              manifest = json.load(f)
+          
+          required_fields = ['domain', 'name', 'version', 'documentation']
+          missing = [f for f in required_fields if f not in manifest]
+          
+          if missing:
+              print(f'ERROR: Missing required fields in manifest.json: {missing}')
+              sys.exit(1)
+          
+          print(f'Manifest validated: {manifest[\"name\"]} v{manifest[\"version\"]}')
+          "
+      
+      - name: Validate services.yaml
+        run: |
+          python -c "
+          import yaml
+          import sys
+          
+          with open('custom_components/cosmos/services.yaml') as f:
+              services = yaml.safe_load(f)
+          
+          if not services:
+              print('WARNING: No services defined in services.yaml')
+          else:
+              for service_name, service_def in services.items():
+                  if 'name' not in service_def:
+                      print(f'ERROR: Service {service_name} missing name field')
+                      sys.exit(1)
+                  if 'fields' not in service_def:
+                      print(f'WARNING: Service {service_name} has no fields defined')
+              
+              print(f'Services validated: {list(services.keys())}')
+          "
+      
+      - name: Validate translations
+        run: |
+          python -c "
+          import json
+          import sys
+          from pathlib import Path
+          
+          translations_dir = Path('custom_components/cosmos/translations')
+          translation_files = list(translations_dir.glob('*.json'))
+          
+          if not translation_files:
+              print('ERROR: No translation files found')
+              sys.exit(1)
+          
+          for trans_file in translation_files:
+              with open(trans_file) as f:
+                  translations = json.load(f)
+              
+              if 'config' not in translations:
+                  print(f'WARNING: {trans_file.name} missing config section')
+              
+              print(f'Translation validated: {trans_file.name}')
+          
+          print(f'Total translations: {len(translation_files)}')
+          "
+      
+      - name: Check integration structure
+        run: |
+          python -c "
+          import sys
+          from pathlib import Path
+          
+          integration_dir = Path('custom_components/cosmos')
+          
+          required_files = [
+              '__init__.py',
+              'manifest.json',
+              'config_flow.py',
+              'const.py',
+          ]
+          
+          missing = []
+          for req_file in required_files:
+              if not (integration_dir / req_file).exists():
+                  missing.append(req_file)
+          
+          if missing:
+              print(f'ERROR: Missing required files: {missing}')
+              sys.exit(1)
+          
+          print('Integration structure validated')
+          "
+
+  build:
+    name: Build Integration Package
+    runs-on: ubuntu-latest
+    needs: [test, validate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create integration package
+        run: |
+          mkdir -p dist
+          cd custom_components
+          zip -r ../dist/cosmos.zip cosmos
+          cd ..
+          echo "Package created: dist/cosmos.zip"
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosmos-integration
+          path: dist/cosmos.zip
+          retention-days: 30

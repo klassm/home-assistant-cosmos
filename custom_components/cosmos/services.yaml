@@ -1,0 +1,33 @@
+book:
+  name: Book Course
+  description: Book a course at Cosmos
+  fields:
+    course:
+      name: Course
+      description: Name of the course to book
+      required: true
+      example: "Yoga"
+      selector:
+        text:
+    day:
+      name: Day
+      description: Day of the week
+      required: true
+      example: "Mon"
+      selector:
+        select:
+          options:
+            - "Mon"
+            - "Tue"
+            - "Wed"
+            - "Thu"
+            - "Fri"
+            - "Sat"
+            - "Sun"
+    time:
+      name: Time
+      description: Time in HH:MM format
+      required: true
+      example: "18:00"
+      selector:
+        text:

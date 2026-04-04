@@ -1,0 +1,21 @@
+{
+	"config": {
+		"step": {
+			"user": {
+				"title": "Cosmos Setup",
+				"description": "Enter your Cosmos credentials",
+				"data": {
+					"username": "Username",
+					"password": "Password",
+					"mandant": "Mandant ID"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "Failed to connect to Cosmos",
+			"invalid_auth": "Invalid username or password",
+			"unknown": "Unexpected error occurred"
+		}
+	},
+	"title": "Cosmos"
+}
