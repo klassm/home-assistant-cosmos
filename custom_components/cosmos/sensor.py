@@ -65,15 +65,3 @@ class CosmosLoadSensor(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("load", {}).get("percentage")
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return extra state attributes."""
-        # Early exit: no data available (Law of Early Exit)
-        if self.coordinator.data is None:
-            return None
-        load_data = self.coordinator.data.get("load", {})
-        return {
-            "location": load_data.get("location"),
-            "last_update_time": load_data.get("time"),
-        }

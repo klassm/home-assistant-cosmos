@@ -12,7 +12,12 @@ import voluptuous as vol
 # These are optional to allow standalone CLI usage
 try:
     from homeassistant.config_entries import ConfigEntry
-    from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+    from homeassistant.core import (
+        HomeAssistant,
+        ServiceCall,
+        ServiceResponse,
+        SupportsResponse,
+    )
     from homeassistant.exceptions import HomeAssistantError
     from homeassistant.helpers import config_validation as cv
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -23,6 +28,7 @@ except ImportError:
     ConfigEntry = None  # type: ignore[misc,assignment]
     HomeAssistant = None  # type: ignore[misc,assignment]
     ServiceCall = None  # type: ignore[misc,assignment]
+    ServiceResponse = None  # type: ignore[misc,assignment]
     HomeAssistantError = Exception  # type: ignore[misc,assignment]
     cv = None  # type: ignore[misc,assignment]
     DataUpdateCoordinator = None  # type: ignore[misc,assignment]
@@ -84,10 +90,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create coordinator for data updates
     async def async_update_data() -> dict[str, Any]:
         """Fetch data from API."""
+        now = datetime.datetime.now()
+        hour = now.hour
+
+        # Studio closed between 22:00 and 07:00 - return 0 load
+        if hour < 7 or hour >= 22:
+            _LOGGER.debug("Studio closed (hour=%s), returning 0 load", hour)
+            return {"load": {"percentage": 0}}
+
+        # Studio open - fetch actual load
         async with CosmosClient(config) as client:
             await client.login()
             load_data = await client.get_load()
-            return {"load": load_data}
+            return {"load": {"percentage": load_data.get("percentage", 0)}}
 
     coordinator = DataUpdateCoordinator(
         hass,
@@ -107,7 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Setup sensor platform
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
-    async def handle_book(call: ServiceCall) -> dict[str, Any]:
+    async def handle_book(call: ServiceCall) -> ServiceResponse:
         """Handle the cosmos.book service call."""
         course = call.data["course"]
         day_value = call.data["day"]
