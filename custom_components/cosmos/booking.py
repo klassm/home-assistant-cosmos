@@ -3,6 +3,10 @@
 from datetime import datetime
 from enum import Enum
 
+from .api_client import CosmosClient
+from .exceptions import BookingError
+from .models import BookingOptions, Course
+
 
 class BookingReason(str, Enum):
     """Reason for the booking outcome."""
@@ -12,11 +16,6 @@ class BookingReason(str, Enum):
     FULL = "full"
     ERROR = "error"
     NOT_FOUND = "not_found"
-
-
-from .api_client import CosmosClient
-from .exceptions import BookingError
-from .models import BookingOptions, Course
 
 
 def is_matching_course(course: Course, options: BookingOptions) -> bool:
