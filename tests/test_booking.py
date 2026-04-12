@@ -7,6 +7,7 @@ import pytest
 
 # Import directly from submodules to avoid HA dependencies in __init__.py
 from custom_components.cosmos.booking import (
+    BookingReason,
     book_course,
     find_matching_courses,
     is_bookable,
@@ -279,6 +280,7 @@ class TestBookCourse:
         result = await book_course(client, options)
 
         assert result["success"] is True
+        assert result["reason"] == BookingReason.NEWLY_BOOKED
         assert "Successfully booked" in result["message"]
 
     @pytest.mark.asyncio
@@ -291,9 +293,11 @@ class TestBookCourse:
         client.find_courses = AsyncMock(return_value=[])
 
         options = BookingOptions(course="NonExistent", day=1, hours=18, minutes=0)
+        result = await book_course(client, options)
 
-        with pytest.raises(BookingError, match="No matching course"):
-            await book_course(client, options)
+        assert result["success"] is False
+        assert result["reason"] == BookingReason.NOT_FOUND
+        assert "No matching course" in result["message"]
 
     @pytest.mark.asyncio
     async def test_book_course_already_booked(self):
@@ -333,6 +337,7 @@ class TestBookCourse:
         result = await book_course(client, options)
 
         assert result["success"] is True
+        assert result["reason"] == BookingReason.ALREADY_BOOKED
         assert "already booked" in result["message"]
 
     @pytest.mark.asyncio
@@ -370,6 +375,50 @@ class TestBookCourse:
         options = BookingOptions(
             course="Yoga", day=begin.isoweekday(), hours=18, minutes=0
         )
+        result = await book_course(client, options)
 
-        with pytest.raises(BookingError, match="course is full"):
-            await book_course(client, options)
+        assert result["success"] is False
+        assert result["reason"] == BookingReason.FULL
+        assert "course is full" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_book_course_error(self):
+        """Test booking when client.book_course raises BookingError"""
+        future = datetime.now() + timedelta(days=7)
+        begin = future.replace(hour=18, minute=0, second=0, microsecond=0)
+
+        client = MagicMock()
+        client.get_mandant_data = AsyncMock(
+            return_value=MagicMock(login_token="token", member_nr="12345")
+        )
+        client.find_courses = AsyncMock(
+            return_value=[
+                Course(
+                    nr=1,
+                    course_name="Yoga",
+                    begin=begin.strftime("%Y-%m-%dT%H:%M:%S"),
+                    end=(begin + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S"),
+                    booked=0,
+                    online_book_max=10,
+                    course_nr=101,
+                    course_period_begin="2024-01-01",
+                    course_period_end="2024-12-31",
+                    course_price_single="10.00",
+                    book_type="online",
+                    waitlist=0,
+                    max_anz=20,
+                    akt_anz=10,
+                )
+            ]
+        )
+        client.is_already_booked = AsyncMock(return_value=False)
+        client.book_course = AsyncMock(side_effect=BookingError("Network error"))
+
+        options = BookingOptions(
+            course="Yoga", day=begin.isoweekday(), hours=18, minutes=0
+        )
+        result = await book_course(client, options)
+
+        assert result["success"] is False
+        assert result["reason"] == BookingReason.ERROR
+        assert "Network error" in result["message"]

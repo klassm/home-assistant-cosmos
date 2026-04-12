@@ -1,6 +1,18 @@
 """High-level booking operations"""
 
 from datetime import datetime
+from enum import Enum
+
+
+class BookingReason(str, Enum):
+    """Reason for the booking outcome."""
+
+    ALREADY_BOOKED = "already_booked"
+    NEWLY_BOOKED = "newly_booked"
+    FULL = "full"
+    ERROR = "error"
+    NOT_FOUND = "not_found"
+
 
 from .api_client import CosmosClient
 from .exceptions import BookingError
@@ -92,23 +104,24 @@ async def book_course(
     client: CosmosClient,
     options: BookingOptions,
 ) -> dict:
-    """Main booking function.
+    """Book the first matching course.
 
     Flow:
     1. Get mandant data (login token, member nr)
     2. Find courses matching options
     3. Filter to bookable courses
-    4. Try to book each matching course
+    4. Book the first bookable course and return immediately
 
     Args:
         client: Authenticated API client
         options: Booking criteria
 
     Returns:
-        Dict with booking result (for Home Assistant service response)
-
-    Raises:
-        BookingError: If no matching course or booking fails
+        Dict with booking result containing:
+        - success: True for ALREADY_BOOKED / NEWLY_BOOKED, False otherwise
+        - reason: BookingReason value
+        - message: Human-readable description
+        - course, day, time: Booking criteria echo
     """
     # Step 1: Get mandant data
     mandant_data = await client.get_mandant_data()
@@ -131,49 +144,67 @@ async def book_course(
         print("Found matching courses, which are not bookable:\n" + "\n".join(messages))
 
     if not bookable:
-        raise BookingError(
-            f"No matching course found: '{options.course}' "
-            f"day={options.day} time={options.hours:02d}:{options.minutes:02d}"
-        )
+        return {
+            "success": False,
+            "reason": BookingReason.NOT_FOUND,
+            "message": (
+                f"No matching course found: '{options.course}' "
+                f"day={options.day} time={options.hours:02d}:{options.minutes:02d}"
+            ),
+            "course": options.course,
+            "day": options.day,
+            "time": f"{options.hours:02d}:{options.minutes:02d}",
+        }
 
-    # Step 4: Try to book each course
-    successes: list[str] = []
-    errors: list[str] = []
+    # Step 4: Book the first bookable course
+    course = bookable[0]
+    prefix = f"{course.course_name} {course.begin}"
 
-    for course in bookable:
-        prefix = f"{course.course_name} {course.begin}:"
+    # Check if already booked
+    is_booked = await client.is_already_booked(
+        course=course,
+        member_nr=mandant_data.member_nr,
+        login_token=mandant_data.login_token,
+    )
 
-        # Check if already booked
-        is_booked = await client.is_already_booked(
-            course=course,
-            member_nr=mandant_data.member_nr,
-            login_token=mandant_data.login_token,
-        )
+    if is_booked:
+        return {
+            "success": True,
+            "reason": BookingReason.ALREADY_BOOKED,
+            "message": f"{prefix}: already booked",
+            "course": options.course,
+            "day": options.day,
+            "time": f"{options.hours:02d}:{options.minutes:02d}",
+        }
 
-        if is_booked:
-            successes.append(f"{prefix} already booked")
-            continue
+    # Check if full
+    if course.akt_anz >= course.max_anz:
+        return {
+            "success": False,
+            "reason": BookingReason.FULL,
+            "message": f"{prefix}: course is full",
+            "course": options.course,
+            "day": options.day,
+            "time": f"{options.hours:02d}:{options.minutes:02d}",
+        }
 
-        # Check if full
-        if course.akt_anz >= course.max_anz:
-            errors.append(f"{prefix} course is full")
-            continue
-
-        # Try to book
-        try:
-            result = await client.book_course(course)
-            successes.append(f"{prefix} {result}")
-        except BookingError as e:
-            errors.append(f"{prefix} {e}")
-
-    # Return result
-    if errors and not successes:
-        raise BookingError("\n".join(errors))
-
-    return {
-        "success": True,
-        "message": "\n".join(successes),
-        "course": options.course,
-        "day": options.day,
-        "time": f"{options.hours:02d}:{options.minutes:02d}",
-    }
+    # Try to book
+    try:
+        result = await client.book_course(course)
+        return {
+            "success": True,
+            "reason": BookingReason.NEWLY_BOOKED,
+            "message": f"{prefix}: {result}",
+            "course": options.course,
+            "day": options.day,
+            "time": f"{options.hours:02d}:{options.minutes:02d}",
+        }
+    except BookingError as e:
+        return {
+            "success": False,
+            "reason": BookingReason.ERROR,
+            "message": f"{prefix}: {e}",
+            "course": options.course,
+            "day": options.day,
+            "time": f"{options.hours:02d}:{options.minutes:02d}",
+        }

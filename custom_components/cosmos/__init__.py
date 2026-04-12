@@ -34,7 +34,7 @@ except ImportError:
     DataUpdateCoordinator = None  # type: ignore[misc,assignment]
 
 from .api_client import CosmosClient
-from .booking import BookingOptions, book_course
+from .booking import BookingOptions, BookingReason, book_course
 from .config import load_config_from_dict
 from .const import (
     CONF_PASSWORD as CONF_PASSWORD,
@@ -171,8 +171,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )  # Convert day number to name
                 time_str = f"{hours:02d}:{minutes:02d}"
                 message = result.get("message", "")
+                reason = result.get("reason")
 
-                if "already booked" in message.lower():
+                if reason == BookingReason.ALREADY_BOOKED:
                     _LOGGER.info(
                         "Booking already done: %s on %s at %s - %s",
                         course,
