@@ -17,12 +17,18 @@ ha_mock.config_entries = MagicMock()
 ha_mock.core = MagicMock()
 ha_mock.exceptions = MagicMock()
 ha_mock.helpers = MagicMock()
+ha_mock.components = MagicMock()
 sys.modules["homeassistant"] = ha_mock
 sys.modules["homeassistant.config_entries"] = ha_mock.config_entries
 sys.modules["homeassistant.core"] = ha_mock.core
 sys.modules["homeassistant.exceptions"] = ha_mock.exceptions
 sys.modules["homeassistant.helpers"] = ha_mock.helpers
 sys.modules["homeassistant.helpers.config_validation"] = MagicMock()
+sys.modules["homeassistant.helpers.entity_platform"] = MagicMock()
+sys.modules["homeassistant.helpers.update_coordinator"] = MagicMock()
+sys.modules["homeassistant.components"] = ha_mock.components
+sys.modules["homeassistant.components.sensor"] = ha_mock.components.sensor
+sys.modules["homeassistant.const"] = MagicMock()
 
 
 class AioresponsesCookiejar(aioresponses):

@@ -1,5 +1,11 @@
 """Utility functions for Cosmos integration."""
 
+from __future__ import annotations
+
+from datetime import datetime
+
+from .models import TodayCourse
+
 
 def parse_weekday(day_input: str) -> int:
     """Parse weekday from number or name.
@@ -60,3 +66,29 @@ def parse_weekday(day_input: str) -> int:
     raise ValueError(
         f"Invalid weekday: {day_input}. Use 1-7, Mo-So (German), or Mon-Sun (English)."
     )
+
+
+def filter_upcoming_courses(
+    courses: list[TodayCourse], now: datetime | None = None
+) -> list[TodayCourse]:
+    """Return only courses that are currently active or haven't started yet.
+
+    A course is included if its end time hasn't passed yet, which naturally
+    includes courses currently in progress.
+
+    Args:
+        courses: All today's courses
+        now: Current datetime (defaults to datetime.now())
+
+    Returns:
+        Filtered list of upcoming and active courses
+    """
+    if now is None:
+        now = datetime.now()
+
+    today = now.date()
+    return [
+        c
+        for c in courses
+        if datetime.combine(today, datetime.strptime(c.end_time, "%H:%M").time()) > now
+    ]

@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 
 from .const import BASE_URL, PROXY_BASE_URL
 from .exceptions import AuthenticationError, BookingError
-from .models import Config, Course, MandantData
+from .models import Config, Course, MandantData, TodayCourse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -171,13 +171,14 @@ class CosmosClient:
         return MandantData(login_token=login_token, member_nr=str(member_nr))
 
     async def get_load(self) -> dict:
-        """Get current gym load from member_home page.
+        """Get current gym load and today's courses from member_home page.
 
         Returns:
             dict with keys:
                 - percentage: int (0-100)
                 - time: str (HH:MM format)
                 - location: str (gym name)
+                - today_courses: list[TodayCourse]
 
         Raises:
             BookingError: If load data cannot be extracted
@@ -228,11 +229,89 @@ class CosmosClient:
         time_elem = donut.find("h5", class_="time")
         time_str = time_elem.text.strip() if time_elem else ""
 
+        # Extract today's courses from okvPreview section
+        today_courses = self._parse_today_courses(soup)
+
         return {
             "percentage": percentage,
             "time": time_str,
             "location": location,
+            "today_courses": today_courses,
         }
+
+    @staticmethod
+    def _parse_today_courses(soup: BeautifulSoup) -> list[TodayCourse]:
+        """Parse today's courses from the okvPreview section of the page.
+
+        Args:
+            soup: Parsed HTML of the member_home page
+
+        Returns:
+            List of TodayCourse objects (empty if section not found)
+        """
+        preview = soup.find("div", id="okvPreview")
+        if not preview:
+            return []
+
+        preview_data = preview.find("div", class_="previewData")
+        if not preview_data:
+            return []
+
+        courses: list[TodayCourse] = []
+        for course_div in preview_data.find_all("div", recursive=False):
+            # Extract course name
+            name_elem = course_div.find("span", class_="name")
+            if not name_elem:
+                continue
+            course_name = name_elem.get_text(strip=True)
+
+            # Extract time range (format: "HH:MM - HH:MM")
+            time_elem = course_div.find("span", class_="time")
+            if not time_elem:
+                continue
+            time_text = time_elem.get_text(strip=True)
+
+            # Parse start and end time
+            try:
+                parts = time_text.split("-")
+                start_time = parts[0].strip()
+                end_time = parts[1].strip()
+            except (IndexError, ValueError):
+                continue
+
+            # Extract participants (format: "11 Teilnehmer")
+            attendees_elem = course_div.find("span", class_="attendees")
+            participants = 0
+            if attendees_elem:
+                attendees_text = attendees_elem.get_text(strip=True)
+                try:
+                    participants = int(attendees_text.split()[0])
+                except (ValueError, IndexError):
+                    pass
+
+            # Extract percentage from donut-size div (format: "34 %")
+            donut = course_div.find("div", class_="donut-size")
+            percentage = 0.0
+            if donut:
+                pct_str = donut.get("percentage", "")
+                if pct_str:
+                    try:
+                        pct_clean = pct_str.replace("%", "").replace(",", ".").strip()
+                        percentage = float(pct_clean) / 100.0
+                    except (ValueError, AttributeError):
+                        pass
+
+            courses.append(
+                TodayCourse(
+                    course=course_name,
+                    participants=participants,
+                    percentage=percentage,
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+            )
+
+        return courses
 
     def _build_proxy_url(self, path: str, params: dict[str, Any]) -> str:
         """Build proxy URL for API calls.

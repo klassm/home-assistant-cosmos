@@ -43,6 +43,17 @@ class Course:
 
 
 @dataclass
+class TodayCourse:
+    """Course shown on today's schedule from the booking page."""
+
+    course: str
+    participants: int
+    percentage: float  # 0.0 to 1.0
+    start_time: str  # "HH:MM"
+    end_time: str  # "HH:MM"
+
+
+@dataclass
 class BookingOptions:
     """Options for booking a course"""
 

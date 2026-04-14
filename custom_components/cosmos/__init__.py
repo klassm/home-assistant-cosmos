@@ -47,7 +47,7 @@ from .const import (
     SERVICE_BOOK,
 )
 from .exceptions import CosmosError
-from .utils import parse_weekday
+from .utils import filter_upcoming_courses, parse_weekday
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,13 +96,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Studio closed between 22:00 and 07:00 - return 0 load
         if hour < 7 or hour >= 22:
             _LOGGER.debug("Studio closed (hour=%s), returning 0 load", hour)
-            return {"load": {"percentage": 0}}
+            return {"load": {"percentage": 0}, "today_courses": []}
 
-        # Studio open - fetch actual load
+        # Studio open - fetch actual load and today's courses
         async with CosmosClient(config) as client:
             await client.login()
             load_data = await client.get_load()
-            return {"load": {"percentage": load_data.get("percentage", 0)}}
+            raw_courses = load_data.get("today_courses", [])
+            upcoming_courses = filter_upcoming_courses(raw_courses, now)
+            return {
+                "load": {"percentage": load_data.get("percentage", 0)},
+                "today_courses": upcoming_courses,
+            }
 
     coordinator = DataUpdateCoordinator(
         hass,

@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .models import TodayCourse
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
@@ -65,3 +66,21 @@ class CosmosLoadSensor(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("load", {}).get("percentage")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return today's upcoming courses as sensor attributes."""
+        courses: list[TodayCourse] = self.coordinator.data.get("today_courses", [])
+        return {
+            "today_courses": [
+                {
+                    "course": c.course,
+                    "participants": c.participants,
+                    "percentage": c.percentage,
+                    "start_time": c.start_time,
+                    "end_time": c.end_time,
+                }
+                for c in courses
+            ],
+            "total_participants": sum(c.participants for c in courses),
+        }
