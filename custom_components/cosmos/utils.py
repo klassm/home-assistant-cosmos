@@ -87,8 +87,12 @@ def filter_upcoming_courses(
         now = datetime.now()
 
     today = now.date()
-    return [
-        c
-        for c in courses
-        if datetime.combine(today, datetime.strptime(c.end_time, "%H:%M").time()) > now
-    ]
+    result: list[TodayCourse] = []
+    for c in courses:
+        try:
+            end = datetime.combine(today, datetime.strptime(c.end_time, "%H:%M").time())
+        except (ValueError, TypeError):
+            continue
+        if end > now:
+            result.append(c)
+    return result

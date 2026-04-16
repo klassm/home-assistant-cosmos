@@ -1,14 +1,18 @@
 """Tests for Cosmos sensor attributes logic"""
 
+from __future__ import annotations
+
 from custom_components.cosmos.models import TodayCourse
 
 
-def _build_extra_state_attributes(data: dict) -> dict:
+def _build_extra_state_attributes(data: dict | None) -> dict:
     """Replicate the extra_state_attributes logic from CosmosLoadSensor.
 
     We test the logic directly rather than importing the sensor class,
     which depends on HA base classes that can't be mocked easily.
     """
+    if data is None:
+        return {"today_courses": [], "total_participants": 0}
     courses: list[TodayCourse] = data.get("today_courses", [])
     return {
         "today_courses": [
@@ -80,6 +84,16 @@ class TestExtraStateAttributes:
         """Test attributes when today_courses key missing"""
         attrs = _build_extra_state_attributes({"load": {"percentage": 42}})
         assert attrs["today_courses"] == []
+
+    def test_no_coordinator_data(self):
+        """Test attributes when coordinator.data is None (before first refresh)
+
+        Regression test: extra_state_attributes must handle None coordinator.data
+        gracefully instead of crashing with AttributeError on None.get().
+        """
+        attrs = _build_extra_state_attributes(None)
+        assert attrs["today_courses"] == []
+        assert attrs["total_participants"] == 0
 
     def test_course_dataclass_fields(self):
         """Test that TodayCourse dataclass has all required fields"""

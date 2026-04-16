@@ -102,8 +102,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async with CosmosClient(config) as client:
             await client.login()
             load_data = await client.get_load()
-            raw_courses = load_data.get("today_courses", [])
-            upcoming_courses = filter_upcoming_courses(raw_courses, now)
+
+            upcoming_courses: list = []
+            try:
+                raw_courses = load_data.get("today_courses", [])
+                upcoming_courses = filter_upcoming_courses(raw_courses, now)
+            except Exception as err:
+                _LOGGER.warning("Failed to process today's courses: %s", err)
+
             return {
                 "load": {"percentage": load_data.get("percentage", 0)},
                 "today_courses": upcoming_courses,

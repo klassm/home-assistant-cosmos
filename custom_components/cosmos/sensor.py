@@ -70,6 +70,8 @@ class CosmosLoadSensor(CoordinatorEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return today's upcoming courses as sensor attributes."""
+        if self.coordinator.data is None:
+            return {"today_courses": [], "total_participants": 0}
         courses: list[TodayCourse] = self.coordinator.data.get("today_courses", [])
         return {
             "today_courses": [

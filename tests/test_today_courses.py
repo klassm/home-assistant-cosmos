@@ -304,3 +304,50 @@ class TestFilterUpcomingCourses:
         ]
         result = filter_upcoming_courses(courses)
         assert isinstance(result, list)
+
+    def test_malformed_end_time_skipped(self):
+        """Regression test: malformed end_time should be skipped, not raise
+
+        Before the fix, datetime.strptime(c.end_time, "%H:%M") would raise
+        ValueError on unexpected formats, propagating up and killing the
+        entire coordinator update (including load data).
+        """
+        courses = [
+            TodayCourse(
+                course="Bad Time",
+                participants=10,
+                percentage=0.5,
+                start_time="08:00",
+                end_time="not-a-time",
+            ),
+            TodayCourse(
+                course="Good Course",
+                participants=15,
+                percentage=0.75,
+                start_time="18:00",
+                end_time="19:00",
+            ),
+        ]
+
+        now = datetime(2026, 4, 14, 17, 0)
+        upcoming = filter_upcoming_courses(courses, now)
+
+        assert len(upcoming) == 1
+        assert upcoming[0].course == "Good Course"
+
+    def test_empty_end_time_skipped(self):
+        """Test that empty end_time is skipped gracefully"""
+        courses = [
+            TodayCourse(
+                course="Empty End",
+                participants=5,
+                percentage=0.25,
+                start_time="10:00",
+                end_time="",
+            ),
+        ]
+
+        now = datetime(2026, 4, 14, 8, 0)
+        upcoming = filter_upcoming_courses(courses, now)
+
+        assert len(upcoming) == 0
