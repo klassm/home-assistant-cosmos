@@ -101,9 +101,7 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return {}
         if self.entity_description.key == "today_courses":
-            courses: list[TodayCourse] = self.coordinator.data.get(
-                "today_courses", []
-            )
+            courses: list[TodayCourse] = self.coordinator.data.get("today_courses", [])
             return {
                 "courses": [
                     {
@@ -117,9 +115,7 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
                 ],
             }
         if self.entity_description.key == "booked_courses":
-            booked: list[BookedCourse] = self.coordinator.data.get(
-                "booked_courses", []
-            )
+            booked: list[BookedCourse] = self.coordinator.data.get("booked_courses", [])
             return {
                 "courses": [
                     {

@@ -170,9 +170,7 @@ class CosmosClient:
 
         booked = self._parse_booked_courses(soup)
 
-        return MandantData(
-            login_token=login_token, member_nr=str(member_nr)
-        ), booked
+        return MandantData(login_token=login_token, member_nr=str(member_nr)), booked
 
     @staticmethod
     def _parse_booked_courses(soup: BeautifulSoup) -> list[BookedCourse]:
