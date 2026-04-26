@@ -21,6 +21,17 @@ SENSOR_DESCRIPTIONS = [
         native_unit_of_measurement=PERCENTAGE,
         icon="mdi:account-group",
     ),
+    SensorEntityDescription(
+        key="total_participants",
+        name="Total Course Participants",
+        native_unit_of_measurement="people",
+        icon="mdi:account-multiple",
+    ),
+    SensorEntityDescription(
+        key="today_courses",
+        name="Today Courses",
+        icon="mdi:calendar-today",
+    ),
 ]
 
 
@@ -33,15 +44,15 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     entities = [
-        CosmosLoadSensor(coordinator, description, entry)
+        CosmosSensor(coordinator, description, entry)
         for description in SENSOR_DESCRIPTIONS
     ]
 
     async_add_entities(entities)
 
 
-class CosmosLoadSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a Cosmos load sensor."""
+class CosmosSensor(CoordinatorEntity, SensorEntity):
+    """Base representation of a Cosmos sensor."""
 
     def __init__(
         self,
@@ -60,29 +71,43 @@ class CosmosLoadSensor(CoordinatorEntity, SensorEntity):
         }
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> int | str | None:
         """Return the native value of the sensor."""
-        # Early exit: no data available (Law of Early Exit)
         if self.coordinator.data is None:
             return None
-        return self.coordinator.data.get("load", {}).get("percentage")
+
+        key = self.entity_description.key
+        if key == "load":
+            return self.coordinator.data.get("load", {}).get("percentage")
+        if key == "total_participants":
+            return sum(
+                c.participants
+                for c in self.coordinator.data.get("today_courses", [])
+            )
+        if key == "today_courses":
+            courses = self.coordinator.data.get("today_courses", [])
+            return len(courses)
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return today's upcoming courses as sensor attributes."""
+        """Return extra state attributes."""
         if self.coordinator.data is None:
-            return {"today_courses": [], "total_participants": 0}
-        courses: list[TodayCourse] = self.coordinator.data.get("today_courses", [])
-        return {
-            "today_courses": [
-                {
-                    "course": c.course,
-                    "participants": c.participants,
-                    "percentage": c.percentage,
-                    "start_time": c.start_time,
-                    "end_time": c.end_time,
-                }
-                for c in courses
-            ],
-            "total_participants": sum(c.participants for c in courses),
-        }
+            return {}
+        if self.entity_description.key == "today_courses":
+            courses: list[TodayCourse] = self.coordinator.data.get(
+                "today_courses", []
+            )
+            return {
+                "courses": [
+                    {
+                        "course": c.course,
+                        "participants": c.participants,
+                        "percentage": c.percentage,
+                        "start_time": c.start_time,
+                        "end_time": c.end_time,
+                    }
+                    for c in courses
+                ],
+            }
+        return {}
