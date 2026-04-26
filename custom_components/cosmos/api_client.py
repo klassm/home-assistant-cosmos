@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 
 from .const import BASE_URL, PROXY_BASE_URL
 from .exceptions import AuthenticationError, BookingError
-from .models import Config, Course, MandantData, TodayCourse
+from .models import BookedCourse, Config, Course, MandantData, TodayCourse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -168,7 +168,43 @@ class CosmosClient:
         if not member_nr:
             raise BookingError("Cannot extract memberNr from memberData")
 
-        return MandantData(login_token=login_token, member_nr=str(member_nr))
+        booked = self._parse_booked_courses(soup)
+
+        return MandantData(
+            login_token=login_token, member_nr=str(member_nr)
+        ), booked
+
+    @staticmethod
+    def _parse_booked_courses(soup: BeautifulSoup) -> list[BookedCourse]:
+        """Parse future bookings from the mycourses page."""
+        future = soup.find("div", class_="futureBookings")
+        if not future:
+            return []
+
+        rows = future.find_all("tr", class_="swipeable")
+        result: list[BookedCourse] = []
+        for row in rows:
+            try:
+                name_el = row.find("span", class_="courseName")
+                tds = row.find_all("td")
+                if not name_el or len(tds) < 3:
+                    continue
+
+                name = name_el.get_text(strip=True)
+                date = ""
+                time_ = ""
+                for td in tds:
+                    cls = td.get("class", [])
+                    if "showformediumup" in cls:
+                        date = td.get_text(strip=True)
+                    if not time_ and td.get_text(strip=True) and " - " in td.get_text():
+                        time_ = td.get_text(strip=True)
+
+                result.append(BookedCourse(name=name, date=date, time=time_))
+            except Exception:
+                continue
+
+        return result
 
     async def get_load(self) -> dict:
         """Get current gym load and today's courses from member_home page.

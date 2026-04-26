@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from custom_components.cosmos.models import TodayCourse
+from custom_components.cosmos.models import BookedCourse, TodayCourse
 
 
 def _native_value(key: str, data: dict | None) -> int | str | None:
@@ -15,6 +15,8 @@ def _native_value(key: str, data: dict | None) -> int | str | None:
         return sum(c.participants for c in data.get("today_courses", []))
     if key == "today_courses":
         return len(data.get("today_courses", []))
+    if key == "booked_courses":
+        return len(data.get("booked_courses", []))
     return None
 
 
@@ -34,6 +36,18 @@ def _extra_state_attributes(key: str, data: dict | None) -> dict:
                     "end_time": c.end_time,
                 }
                 for c in courses
+            ],
+        }
+    if key == "booked_courses":
+        booked: list[BookedCourse] = data.get("booked_courses", [])
+        return {
+            "courses": [
+                {
+                    "name": b.name,
+                    "date": b.date,
+                    "time": b.time,
+                }
+                for b in booked
             ],
         }
     return {}
@@ -112,6 +126,31 @@ class TestNativeValue:
             == 0
         )
 
+    def test_booked_courses_count(self):
+        booked = [
+            BookedCourse(name="Yoga", date="Do 30.04.26", time="09:15 - 10:00"),
+            BookedCourse(name="BBP", date="Mi 29.04.26", time="08:45 - 09:45"),
+        ]
+        assert (
+            _native_value(
+                "booked_courses",
+                {"load": {"percentage": 42}, "booked_courses": booked},
+            )
+            == 2
+        )
+
+    def test_booked_courses_count_empty(self):
+        assert (
+            _native_value(
+                "booked_courses",
+                {"load": {"percentage": 0}, "booked_courses": []},
+            )
+            == 0
+        )
+
+    def test_booked_courses_none_data(self):
+        assert _native_value("booked_courses", None) is None
+
 
 class TestExtraStateAttributes:
     """Tests for sensor extra_state_attributes logic"""
@@ -171,4 +210,37 @@ class TestExtraStateAttributes:
             "total_participants",
             {"load": {"percentage": 42}, "today_courses": []},
         )
+        assert attrs == {}
+
+    def test_booked_courses_attributes(self):
+        booked = [
+            BookedCourse(name="RückenFit", date="Do 30.04.26", time="09:15 - 10:00"),
+            BookedCourse(
+                name="Bauch Beine Po",
+                date="Mi 29.04.26",
+                time="08:45 - 09:45",
+            ),
+        ]
+        attrs = _extra_state_attributes(
+            "booked_courses",
+            {"load": {"percentage": 42}, "booked_courses": booked},
+        )
+
+        assert "courses" in attrs
+        assert len(attrs["courses"]) == 2
+
+        rucken = attrs["courses"][0]
+        assert rucken["name"] == "RückenFit"
+        assert rucken["date"] == "Do 30.04.26"
+        assert rucken["time"] == "09:15 - 10:00"
+
+    def test_booked_courses_empty(self):
+        attrs = _extra_state_attributes(
+            "booked_courses",
+            {"load": {"percentage": 42}, "booked_courses": []},
+        )
+        assert attrs["courses"] == []
+
+    def test_booked_courses_none_data(self):
+        attrs = _extra_state_attributes("booked_courses", None)
         assert attrs == {}

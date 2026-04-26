@@ -54,6 +54,15 @@ class TodayCourse:
 
 
 @dataclass
+class BookedCourse:
+    """A future booked course from the mycourses page."""
+
+    name: str
+    date: str
+    time: str
+
+
+@dataclass
 class BookingOptions:
     """Options for booking a course"""
 

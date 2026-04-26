@@ -97,23 +97,42 @@ async def test_get_mandant_data(mock_api, config):
     )
     mock_api.post(re.compile(rf"^{re.escape(check_login_url)}"), status=200)
 
-    # Mock mycourses page with mandant data
+    # Mock mycourses page with mandant data and booked courses
     html = """
     <html>
         <div id="jsvariable-data-mandantData"
              data-mandantdata='{"loginToken":"token123"}'></div>
         <div id="jsvariable-data-memberData"
              data-memberdata='{"nr":"12345"}'></div>
+        <div class="futureBookings">
+            <table><tbody>
+                <tr class="swipeable future 0">
+                    <td><span class="courseName">RückenFit</span></td>
+                    <td class="showformediumup">Do 30.04.26</td>
+                    <td>09:15 - 10:00</td>
+                </tr>
+                <tr class="swipeable future 1">
+                    <td><span class="courseName">Bauch Beine Po</span></td>
+                    <td class="showformediumup">Mi 29.04.26</td>
+                    <td>08:45 - 09:45</td>
+                </tr>
+            </tbody></table>
+        </div>
     </html>
     """
     mock_api.get(re.compile(rf"^{re.escape(mycourses_url)}\?"), status=200, body=html)
 
     async with CosmosClient(config) as client:
         await client.login()
-        mandant_data = await client.get_mandant_data()
+        mandant_data, booked = await client.get_mandant_data()
 
         assert mandant_data.login_token == "token123"
         assert mandant_data.member_nr == "12345"
+        assert len(booked) == 2
+        assert booked[0].name == "RückenFit"
+        assert booked[0].date == "Do 30.04.26"
+        assert booked[0].time == "09:15 - 10:00"
+        assert booked[1].name == "Bauch Beine Po"
 
 
 @pytest.mark.asyncio

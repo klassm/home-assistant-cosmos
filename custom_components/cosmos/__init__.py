@@ -110,9 +110,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as err:
                 _LOGGER.warning("Failed to process today's courses: %s", err)
 
+            booked_courses: list = []
+            try:
+                _, booked = await client.get_mandant_data()
+                booked_courses = booked
+            except Exception as err:
+                _LOGGER.warning("Failed to fetch booked courses: %s", err)
+
             return {
                 "load": {"percentage": load_data.get("percentage", 0)},
                 "today_courses": upcoming_courses,
+                "booked_courses": booked_courses,
             }
 
     coordinator = DataUpdateCoordinator(

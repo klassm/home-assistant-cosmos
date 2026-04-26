@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .models import TodayCourse
+from .models import BookedCourse, TodayCourse
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
@@ -31,6 +31,11 @@ SENSOR_DESCRIPTIONS = [
         key="today_courses",
         name="Today Courses",
         icon="mdi:calendar-today",
+    ),
+    SensorEntityDescription(
+        key="booked_courses",
+        name="Booked Courses",
+        icon="mdi:bookmark-check",
     ),
 ]
 
@@ -86,6 +91,8 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         if key == "today_courses":
             courses = self.coordinator.data.get("today_courses", [])
             return len(courses)
+        if key == "booked_courses":
+            return len(self.coordinator.data.get("booked_courses", []))
         return None
 
     @property
@@ -94,7 +101,9 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         if self.coordinator.data is None:
             return {}
         if self.entity_description.key == "today_courses":
-            courses: list[TodayCourse] = self.coordinator.data.get("today_courses", [])
+            courses: list[TodayCourse] = self.coordinator.data.get(
+                "today_courses", []
+            )
             return {
                 "courses": [
                     {
@@ -105,6 +114,20 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
                         "end_time": c.end_time,
                     }
                     for c in courses
+                ],
+            }
+        if self.entity_description.key == "booked_courses":
+            booked: list[BookedCourse] = self.coordinator.data.get(
+                "booked_courses", []
+            )
+            return {
+                "courses": [
+                    {
+                        "name": b.name,
+                        "date": b.date,
+                        "time": b.time,
+                    }
+                    for b in booked
                 ],
             }
         return {}

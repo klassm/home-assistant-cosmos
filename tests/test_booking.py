@@ -249,7 +249,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=MagicMock(login_token="token", member_nr="12345")
+            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -288,7 +288,7 @@ class TestBookCourse:
         """Test booking when course not found"""
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=MagicMock(login_token="token", member_nr="12345")
+            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
         )
         client.find_courses = AsyncMock(return_value=[])
 
@@ -307,7 +307,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=MagicMock(login_token="token", member_nr="12345")
+            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -348,7 +348,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=MagicMock(login_token="token", member_nr="12345")
+            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -389,7 +389,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=MagicMock(login_token="token", member_nr="12345")
+            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
         )
         client.find_courses = AsyncMock(
             return_value=[
