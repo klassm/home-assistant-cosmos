@@ -99,7 +99,7 @@ def load() -> None:
     async def run_get_load() -> dict:
         async with CosmosClient(config) as client:
             await client.login()
-            return await client.get_load()
+            return await client.get_workload()
 
     try:
         result = asyncio.run(run_get_load())

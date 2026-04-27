@@ -47,7 +47,7 @@ from .const import (
     SERVICE_BOOK,
 )
 from .exceptions import CosmosError
-from .utils import filter_upcoming_courses, parse_weekday
+from .utils import parse_weekday
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -98,17 +98,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug("Studio closed (hour=%s), returning 0 load", hour)
             return {"load": {"percentage": 0}, "today_upcoming_courses": []}
 
-        # Studio open - fetch actual load and today's courses
+        # Studio open - fetch actual workload and booked courses
         async with CosmosClient(config) as client:
             await client.login()
-            load_data = await client.get_load()
 
-            upcoming_courses: list = []
+            load_data = {"percentage": 0, "location": "Unknown"}
             try:
-                raw_courses = load_data.get("today_upcoming_courses", [])
-                upcoming_courses = filter_upcoming_courses(raw_courses, now)
+                load_data = await client.get_workload()
             except Exception as err:
-                _LOGGER.warning("Failed to process today's courses: %s", err)
+                _LOGGER.warning("Failed to fetch workload: %s", err)
 
             booked_courses: list = []
             try:
@@ -121,7 +119,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             return {
                 "load": {"percentage": load_data.get("percentage", 0)},
-                "today_upcoming_courses": upcoming_courses,
+                "today_upcoming_courses": [],
                 "booked_courses": booked_courses,
             }
 

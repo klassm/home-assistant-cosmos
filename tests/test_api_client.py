@@ -3,7 +3,6 @@
 import re
 
 import pytest
-from bs4 import BeautifulSoup
 
 from custom_components.cosmos.api_client import CosmosClient
 from custom_components.cosmos.const import BASE_URL
@@ -11,7 +10,6 @@ from custom_components.cosmos.exceptions import (
     AuthenticationError,
     BookingError,
 )
-from custom_components.cosmos.models import TodayCourse
 
 
 @pytest.mark.asyncio
@@ -216,6 +214,38 @@ async def test_find_courses_empty(mock_api, config):
         courses = await client.find_courses(member_nr="12345", login_token="token")
 
         assert len(courses) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_workload(mock_api, config):
+    """Test fetching workload via JSON API"""
+    login_url = f"{BASE_URL}/login"
+    check_login_url = f"{BASE_URL}/check_login"
+    workload_url = f"{BASE_URL}/workload"
+
+    mock_api.get(
+        re.compile(rf"^{re.escape(login_url)}\?"),
+        status=200,
+        headers={"Set-Cookie": "PHPSESSID=test_session_id"},
+    )
+    mock_api.post(re.compile(rf"^{re.escape(check_login_url)}"), status=200)
+    mock_api.get(
+        re.compile(rf"^{re.escape(workload_url)}\?"),
+        status=200,
+        payload={
+            "gym": 1,
+            "name": "Cosmos Stadtbergen",
+            "workload": "24,00 %",
+            "numval": "24.00",
+        },
+    )
+
+    async with CosmosClient(config) as client:
+        await client.login()
+        data = await client.get_workload()
+
+        assert data["percentage"] == 24
+        assert data["location"] == "Cosmos Stadtbergen"
 
 
 @pytest.mark.asyncio
@@ -518,167 +548,3 @@ async def test_require_session_without_context():
 
     with pytest.raises(RuntimeError, match="Use async context manager"):
         await client.login()
-
-
-OKV_PREVIEW_HTML = """
-<html>
-<body>
-<div id="okvPreview">
-    <div class="previewData">
-        <div>
-            <span class="time">09:15 - 10:00</span>
-            <span class="name">RückenFit</span>
-            <span class="attendees">11 Teilnehmer</span>
-            <div class="donut-size" percentage="100 %" id="course247176">
-                <p class="text-center donut-data"><span>11</span>/11</p>
-            </div>
-        </div>
-        <div>
-            <span class="time">08:45 - 09:45</span>
-            <span class="name">Bauch Beine Po</span>
-            <span class="attendees">8 Teilnehmer</span>
-            <div class="donut-size" percentage="80 %" id="course247175">
-                <p class="text-center donut-data"><span>8</span>/10</p>
-            </div>
-        </div>
-        <div>
-            <span class="time">18:30 - 19:30</span>
-            <span class="name">Step &amp; Cardio</span>
-            <span class="attendees">5 Teilnehmer</span>
-            <div class="donut-size" percentage="34 %" id="course247180">
-                <p class="text-center donut-data"><span>5</span>/15</p>
-            </div>
-        </div>
-        <div>
-            <span class="time">10:15 - 11:00</span>
-            <span class="name">Mobility</span>
-            <span class="attendees">0 Teilnehmer</span>
-            <div class="donut-size" percentage="0 %" id="course247177">
-                <p class="text-center donut-data"><span>0</span>/12</p>
-            </div>
-        </div>
-    </div>
-</div>
-</body>
-</html>
-"""
-
-
-class TestParseTodayCourses:
-    def test_parses_today_upcoming_courses(self):
-        soup = BeautifulSoup(OKV_PREVIEW_HTML, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert len(result) == 4
-        assert result[0] == TodayCourse(
-            course="RückenFit",
-            participants=11,
-            percentage=1.0,
-            start_time="09:15",
-            end_time="10:00",
-        )
-        assert result[1] == TodayCourse(
-            course="Bauch Beine Po",
-            participants=8,
-            percentage=0.8,
-            start_time="08:45",
-            end_time="09:45",
-        )
-        assert result[2] == TodayCourse(
-            course="Step & Cardio",
-            participants=5,
-            percentage=0.34,
-            start_time="18:30",
-            end_time="19:30",
-        )
-        assert result[3] == TodayCourse(
-            course="Mobility",
-            participants=0,
-            percentage=0.0,
-            start_time="10:15",
-            end_time="11:00",
-        )
-
-    def test_handles_zero_participants(self):
-        soup = BeautifulSoup(OKV_PREVIEW_HTML, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        mobility = [c for c in result if c.course == "Mobility"][0]
-        assert mobility.participants == 0
-        assert mobility.percentage == 0.0
-
-    def test_returns_empty_when_no_okv_preview(self):
-        html = "<html><body>No preview section</body></html>"
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert result == []
-
-    def test_returns_empty_when_no_preview_data(self):
-        html = '<html><div id="okvPreview"></div></html>'
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert result == []
-
-    def test_skips_courses_without_name(self):
-        html = """
-        <html><div id="okvPreview"><div class="previewData">
-            <div>
-                <span class="time">09:15 - 10:00</span>
-                <span class="attendees">5 Teilnehmer</span>
-                <div class="donut-size" percentage="50 %"></div>
-            </div>
-        </div></div></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert result == []
-
-    def test_skips_courses_without_time(self):
-        html = """
-        <html><div id="okvPreview"><div class="previewData">
-            <div>
-                <span class="name">Yoga</span>
-                <span class="attendees">5 Teilnehmer</span>
-                <div class="donut-size" percentage="50 %"></div>
-            </div>
-        </div></div></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert result == []
-
-    def test_handles_missing_attendees_gracefully(self):
-        html = """
-        <html><div id="okvPreview"><div class="previewData">
-            <div>
-                <span class="time">09:15 - 10:00</span>
-                <span class="name">Yoga</span>
-                <div class="donut-size" percentage="50 %"></div>
-            </div>
-        </div></div></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert len(result) == 1
-        assert result[0].participants == 0
-
-    def test_handles_missing_donut_gracefully(self):
-        html = """
-        <html><div id="okvPreview"><div class="previewData">
-            <div>
-                <span class="time">09:15 - 10:00</span>
-                <span class="name">Yoga</span>
-                <span class="attendees">5 Teilnehmer</span>
-            </div>
-        </div></div></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_today_upcoming_courses(soup)
-
-        assert len(result) == 1
-        assert result[0].percentage == 0.0

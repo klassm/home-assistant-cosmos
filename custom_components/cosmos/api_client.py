@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 from .const import BASE_URL, PROXY_BASE_URL
 from .exceptions import AuthenticationError, BookingError
-from .models import BookedCourse, Config, Course, MandantData, TodayCourse
+from .models import BookedCourse, Config, Course, MandantData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -229,148 +229,50 @@ class CosmosClient:
 
         return result
 
-    async def get_load(self) -> dict:
-        """Get current gym load and today's courses from member_home page.
+    async def get_workload(self) -> dict:
+        """Get current gym workload from the JSON API.
 
         Returns:
             dict with keys:
                 - percentage: int (0-100)
-                - time: str (HH:MM format)
                 - location: str (gym name)
-                - today_upcoming_courses: list[TodayCourse]
 
         Raises:
-            BookingError: If load data cannot be extracted
+            BookingError: If workload data cannot be fetched
         """
         session = self._require_session()
 
-        # Early exit: verify logged in (Law of Early Exit)
         if not self.session_id:
             raise AuthenticationError("Not logged in")
 
-        url = f"{BASE_URL}/member_home"
-        params = {"mandant": self.config.mandant, "id": self.session_id}
+        url = f"{BASE_URL}/workload"
+        params = {
+            "mandant": self.config.mandant,
+            "id": self.session_id,
+            "jsonResponse": "1",
+        }
 
         async with session.get(url, params=params) as resp:
-            html = await resp.text()
+            text = await resp.text()
 
-        # Parse HTML to extract load
-        soup = BeautifulSoup(html, "html.parser")
-
-        # Find the chartContainer div
-        chart = soup.find("div", class_="chartContainer")
-        if not chart:
-            raise BookingError("Cannot find load chart on page")
-
-        # Find the donut chart div with percentage attribute
-        donut = chart.find("div", class_="donut-size")
-        if not donut:
-            raise BookingError("Cannot find load percentage")
-
-        # Extract percentage (format: "13,00 %")
-        percentage_str = donut.get("percentage", "")
-        if not percentage_str:
-            raise BookingError("Cannot find percentage attribute")
-
-        # Parse percentage: "13,00 %" -> 13
         try:
-            # Remove % and spaces, replace comma with dot for parsing
-            percentage_clean = percentage_str.replace("%", "").replace(",", ".").strip()
-            percentage = int(float(percentage_clean))
-        except (ValueError, AttributeError):
-            raise BookingError(f"Invalid percentage format: {percentage_str}")
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            raise BookingError(f"Failed to parse workload response: {e}")
 
-        # Extract location name
-        label = donut.find("h5", class_="chartlabel")
-        location = label.text.strip() if label else "Unknown"
+        numval = data.get("numval")
+        if numval is None:
+            raise BookingError("No numval in workload response")
 
-        # Extract time
-        time_elem = donut.find("h5", class_="time")
-        time_str = time_elem.text.strip() if time_elem else ""
-
-        # Extract today's courses from okvPreview section
-        today_upcoming_courses = self._parse_today_upcoming_courses(soup)
+        try:
+            percentage = int(float(numval))
+        except (ValueError, TypeError):
+            raise BookingError(f"Invalid numval format: {numval}")
 
         return {
             "percentage": percentage,
-            "time": time_str,
-            "location": location,
-            "today_upcoming_courses": today_upcoming_courses,
+            "location": data.get("name", "Unknown"),
         }
-
-    @staticmethod
-    def _parse_today_upcoming_courses(soup: BeautifulSoup) -> list[TodayCourse]:
-        """Parse today's courses from the okvPreview section of the page.
-
-        Args:
-            soup: Parsed HTML of the member_home page
-
-        Returns:
-            List of TodayCourse objects (empty if section not found)
-        """
-        preview = soup.find("div", id="okvPreview")
-        if not preview:
-            return []
-
-        preview_data = preview.find("div", class_="previewData")
-        if not preview_data:
-            return []
-
-        courses: list[TodayCourse] = []
-        for course_div in preview_data.find_all("div", recursive=False):
-            # Extract course name
-            name_elem = course_div.find("span", class_="name")
-            if not name_elem:
-                continue
-            course_name = name_elem.get_text(strip=True)
-
-            # Extract time range (format: "HH:MM - HH:MM")
-            time_elem = course_div.find("span", class_="time")
-            if not time_elem:
-                continue
-            time_text = time_elem.get_text(strip=True)
-
-            # Parse start and end time
-            try:
-                parts = time_text.split("-")
-                start_time = parts[0].strip()
-                end_time = parts[1].strip()
-            except (IndexError, ValueError):
-                continue
-
-            # Extract participants (format: "11 Teilnehmer")
-            attendees_elem = course_div.find("span", class_="attendees")
-            participants = 0
-            if attendees_elem:
-                attendees_text = attendees_elem.get_text(strip=True)
-                try:
-                    participants = int(attendees_text.split()[0])
-                except (ValueError, IndexError):
-                    pass
-
-            # Extract percentage from donut-size div (format: "34 %")
-            donut = course_div.find("div", class_="donut-size")
-            percentage = 0.0
-            if donut:
-                pct_str = donut.get("percentage", "")
-                if pct_str:
-                    try:
-                        pct_clean = pct_str.replace("%", "").replace(",", ".").strip()
-                        percentage = float(pct_clean) / 100.0
-                    except (ValueError, AttributeError):
-                        pass
-
-            courses.append(
-                TodayCourse(
-                    course=course_name,
-                    participants=participants,
-                    percentage=percentage,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-            )
-
-        return courses
 
     def _build_proxy_url(self, path: str, params: dict[str, Any]) -> str:
         """Build proxy URL for API calls.
