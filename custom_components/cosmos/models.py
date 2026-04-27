@@ -55,11 +55,12 @@ class TodayCourse:
 
 @dataclass
 class BookedCourse:
-    """A future booked course from the mycourses page."""
+    """A booked course from the booked_courses API."""
 
     name: str
     date: str
     time: str
+    nr: int = 0
 
 
 @dataclass

@@ -11,7 +11,7 @@ from custom_components.cosmos.exceptions import (
     AuthenticationError,
     BookingError,
 )
-from custom_components.cosmos.models import BookedCourse, TodayCourse
+from custom_components.cosmos.models import TodayCourse
 
 
 @pytest.mark.asyncio
@@ -99,59 +99,23 @@ async def test_get_mandant_data(mock_api, config):
     )
     mock_api.post(re.compile(rf"^{re.escape(check_login_url)}"), status=200)
 
-    # Mock mycourses page with mandant data and booked courses
-    # Includes realistic HTML with storno cells that also have showformediumup class
+    # Mock mycourses page with mandant data (no booked courses - now via API)
     html = """
     <html>
         <div id="jsvariable-data-mandantData"
              data-mandantdata='{"loginToken":"token123"}'></div>
         <div id="jsvariable-data-memberData"
               data-memberdata='{"nr":"12345"}'></div>
-        <div class="columns small-12 futureBookings">
-            <h3 class="themeColorLight">Zukünftige Buchungen (<span>2</span>)</h3>
-            <table><tbody>
-                <tr class="future header">
-                    <th class="future themeFontColorLight">Name</th>
-                </tr>
-                <tr booktype="single" group="43" id="161948" class="swipeable future 0">
-                    <td><span class="showformobileonly">30.04.26</span><span class="courseName">RückenFit</span></td>
-                    <td class="showformediumup">Do 30.04.26</td>
-                    <td>09:15 - 10:00</td>
-                    <td class="showforlargeup">Kursraum</td>
-                    <td class="showforlargeup">Susa</td>
-                    <td>0,00€</td>
-                    <td class="showforlargeup">26.04.2026</td>
-                    <td class="storno showformobileonly">Storno</td>
-                    <td class="storno showformediumup">Stornieren</td>
-                </tr>
-                <tr booktype="single" group="51" id="154801" class="swipeable future 1">
-                    <td><span class="showformobileonly">29.04.26</span><span class="courseName">Bauch Beine Po</span></td>
-                    <td class="showformediumup">Mi 29.04.26</td>
-                    <td>08:45 - 09:45</td>
-                    <td class="showforlargeup">Kursraum</td>
-                    <td class="showforlargeup">Birgit</td>
-                    <td>0,00€</td>
-                    <td class="showforlargeup">25.04.2026</td>
-                    <td class="storno showformobileonly">Storno</td>
-                    <td class="storno showformediumup">Stornieren</td>
-                </tr>
-            </tbody></table>
-        </div>
     </html>
     """
     mock_api.get(re.compile(rf"^{re.escape(mycourses_url)}\?"), status=200, body=html)
 
     async with CosmosClient(config) as client:
         await client.login()
-        mandant_data, booked = await client.get_mandant_data()
+        mandant_data = await client.get_mandant_data()
 
         assert mandant_data.login_token == "token123"
         assert mandant_data.member_nr == "12345"
-        assert len(booked) == 2
-        assert booked[0].name == "RückenFit"
-        assert booked[0].date == "Do 30.04.26"
-        assert booked[0].time == "09:15 - 10:00"
-        assert booked[1].name == "Bauch Beine Po"
 
 
 @pytest.mark.asyncio
@@ -255,6 +219,66 @@ async def test_find_courses_empty(mock_api, config):
 
 
 @pytest.mark.asyncio
+async def test_get_booked_courses(mock_api, config):
+    """Test fetching booked courses via API"""
+    login_url = f"{BASE_URL}/login"
+    check_login_url = f"{BASE_URL}/check_login"
+
+    mock_api.get(
+        re.compile(rf"^{re.escape(login_url)}\?"),
+        status=200,
+        headers={"Set-Cookie": "PHPSESSID=test_session_id"},
+    )
+    mock_api.post(re.compile(rf"^{re.escape(check_login_url)}"), status=200)
+
+    booked_data = {
+        "booked_courses": [
+            {
+                "t601_lfnr": 161948,
+                "course_name": "RückenFit",
+                "begin": "2099-04-30T09:15:00",
+                "end": "2099-04-30T10:00:00",
+                "book_type": "single",
+            },
+            {
+                "t601_lfnr": 154801,
+                "course_name": "Bauch Beine Po",
+                "begin": "2099-04-29T08:45:00",
+                "end": "2099-04-29T09:45:00",
+                "book_type": "single",
+            },
+            {
+                "t601_lfnr": 999,
+                "course_name": "Past Course",
+                "begin": "2020-01-15T08:00:00",
+                "end": "2020-01-15T09:00:00",
+                "book_type": "single",
+            },
+        ],
+        "count": 3,
+    }
+    mock_api.get(
+        re.compile(rf"^{re.escape(BASE_URL)}/proxy\.php"),
+        status=200,
+        payload=booked_data,
+    )
+
+    async with CosmosClient(config) as client:
+        await client.login()
+        booked = await client.get_booked_courses(member_nr="12345", login_token="token")
+
+        assert len(booked) == 2
+        assert booked[0].name == "RückenFit"
+        assert booked[0].date == "2099-04-30"
+        assert booked[0].time == "09:15 - 10:00"
+        assert booked[0].nr == 161948
+        assert booked[1].name == "Bauch Beine Po"
+        assert booked[1].date == "2099-04-29"
+        assert booked[1].time == "08:45 - 09:45"
+        assert booked[1].nr == 154801
+
+
+@pytest.mark.asyncio
 async def test_is_already_booked_true(mock_api, config):
     """Test checking if course is already booked (true)"""
     login_url = f"{BASE_URL}/login"
@@ -270,8 +294,18 @@ async def test_is_already_booked_true(mock_api, config):
     # Mock booked courses response
     booked_data = {
         "booked_courses": [
-            {"t601_lfnr": 1},
-            {"t601_lfnr": 2},
+            {
+                "t601_lfnr": 1,
+                "course_name": "Yoga",
+                "begin": "2099-01-15T18:00:00",
+                "end": "2099-01-15T19:00:00",
+            },
+            {
+                "t601_lfnr": 2,
+                "course_name": "Pilates",
+                "begin": "2099-01-16T10:00:00",
+                "end": "2099-01-16T11:00:00",
+            },
         ]
     }
     mock_api.get(
@@ -316,7 +350,16 @@ async def test_is_already_booked_false(mock_api, config):
     mock_api.get(
         re.compile(rf"^{re.escape(BASE_URL)}/proxy\.php"),
         status=200,
-        payload={"booked_courses": [{"t601_lfnr": 999}]},
+        payload={
+            "booked_courses": [
+                {
+                    "t601_lfnr": 999,
+                    "course_name": "Zumba",
+                    "begin": "2099-01-15T18:00:00",
+                    "end": "2099-01-15T19:00:00",
+                }
+            ]
+        },
     )
 
     async with CosmosClient(config) as client:
@@ -477,89 +520,6 @@ async def test_require_session_without_context():
         await client.login()
 
 
-BOOKING_LIST_HTML = """
-<html>
-<body>
-<div id="bookingList" offset="0">
-    <div class="columns small-12 futureBookings">
-        <h3 class="themeColorLight">Zukünftige Buchungen (<span>2</span>)</h3>
-        <table><tbody>
-            <tr class="future header">
-                <th class="future themeFontColorLight">Name</th>
-            </tr>
-            <tr booktype="single" group="43" id="161948" class="swipeable future 0">
-                <td><span class="showformobileonly">30.04.26</span><span class="courseName">RückenFit</span></td>
-                <td class="showformediumup">Do 30.04.26</td>
-                <td>09:15 - 10:00</td>
-                <td class="showforlargeup">Kursraum</td>
-                <td class="showforlargeup">Susa</td>
-                <td>0,00€</td>
-                <td class="showforlargeup">26.04.2026</td>
-                <td class="storno showformobileonly">Storno</td>
-                <td class="storno showformediumup">Stornieren</td>
-            </tr>
-            <tr booktype="single" group="51" id="154801" class="swipeable future 1">
-                <td><span class="showformobileonly">29.04.26</span><span class="courseName">Bauch Beine Po</span></td>
-                <td class="showformediumup">Mi 29.04.26</td>
-                <td>08:45 - 09:45</td>
-                <td class="showforlargeup">Kursraum</td>
-                <td class="showforlargeup">Birgit</td>
-                <td>0,00€</td>
-                <td class="showforlargeup">25.04.2026</td>
-                <td class="storno showformobileonly">Storno</td>
-                <td class="storno showformediumup">Stornieren</td>
-            </tr>
-        </tbody></table>
-    </div>
-    <div class="columns small-12 waitlist invisible">
-        <h3 class="themeColorLight">Warteliste (<span>0</span>)</h3>
-    </div>
-    <div class="columns small-12 pastBookings">
-        <h3 class="themeColorLight">Vergangene Buchungen (<span>453</span>)</h3>
-        <table><tbody>
-            <tr class="past header">
-                <th class="past themeFontColorLight">Name</th>
-            </tr>
-            <tr booktype="completesingle" id="161947" class="swipeable past 0">
-                <td><span class="showformobileonly">26.04.26</span><span class="courseName">RückenFit</span></td>
-                <td class="showformediumup">Sa 26.04.26</td>
-                <td>09:15 - 10:00</td>
-                <td class="showforlargeup">Kursraum</td>
-                <td class="showforlargeup">Susa</td>
-                <td>0,00€</td>
-            </tr>
-            <tr booktype="single" id="161738" class="swipeable past 1">
-                <td><span class="showformobileonly">25.04.26</span><span class="courseName">Pilates</span></td>
-                <td class="showformediumup">Fr 25.04.26</td>
-                <td>08:45 - 09:45</td>
-                <td class="showforlargeup">Kursraum</td>
-                <td class="showforlargeup"></td>
-                <td>0,00€</td>
-            </tr>
-            <tr booktype="single" id="161737" class="swipeable past 2">
-                <td><span class="showformobileonly">24.04.26</span><span class="courseName">Step &amp; Cardio</span></td>
-                <td class="showformediumup">Do 24.04.26</td>
-                <td>18:30 - 19:30</td>
-                <td class="showforlargeup">Kursraum</td>
-                <td class="showforlargeup"></td>
-                <td>0,00€</td>
-            </tr>
-            <tr booktype="single" id="392040" class="swipeable past 3 invisible">
-                <td><span class="showformobileonly">01.03.20</span><span class="courseName">Yoga</span></td>
-                <td class="showformediumup">So 01.03.20</td>
-                <td>10:00 - 11:00</td>
-                <td class="showforlargeup">Kursraum</td>
-                <td class="showforlargeup"></td>
-                <td>0,00€</td>
-            </tr>
-        </tbody></table>
-        <a class="loadMoreButton" onclick="showMoreUserCourses(event)">Mehr anzeigen</a>
-    </div>
-</div>
-</body>
-</html>
-"""
-
 OKV_PREVIEW_HTML = """
 <html>
 <body>
@@ -602,68 +562,6 @@ OKV_PREVIEW_HTML = """
 </body>
 </html>
 """
-
-
-class TestParseBookedCourses:
-    def test_parses_future_bookings(self):
-        soup = BeautifulSoup(BOOKING_LIST_HTML, "html.parser")
-        result = CosmosClient._parse_booked_courses(soup)
-
-        assert len(result) == 2
-        assert result[0] == BookedCourse(
-            name="RückenFit", date="Do 30.04.26", time="09:15 - 10:00"
-        )
-        assert result[1] == BookedCourse(
-            name="Bauch Beine Po", date="Mi 29.04.26", time="08:45 - 09:45"
-        )
-
-    def test_excludes_storno_cells_from_date(self):
-        soup = BeautifulSoup(BOOKING_LIST_HTML, "html.parser")
-        result = CosmosClient._parse_booked_courses(soup)
-
-        for course in result:
-            assert "Storn" not in course.date
-
-    def test_returns_empty_when_no_future_bookings(self):
-        html = '<html><div class="columns small-12 futureBookings"><h3>Zukünftige Buchungen (<span>0</span>)</h3></div></html>'
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_booked_courses(soup)
-
-        assert result == []
-
-    def test_returns_empty_when_no_future_bookings_div(self):
-        html = "<html><body>No booking list</body></html>"
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_booked_courses(soup)
-
-        assert result == []
-
-    def test_skips_rows_missing_name(self):
-        html = """
-        <html><div class="futureBookings"><table><tbody>
-            <tr class="swipeable future">
-                <td class="showformediumup">Do 30.04.26</td>
-                <td>09:15 - 10:00</td>
-            </tr>
-        </tbody></table></div></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_booked_courses(soup)
-
-        assert result == []
-
-    def test_skips_rows_with_too_few_tds(self):
-        html = """
-        <html><div class="futureBookings"><table><tbody>
-            <tr class="swipeable future">
-                <td><span class="courseName">Yoga</span></td>
-            </tr>
-        </tbody></table></div></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = CosmosClient._parse_booked_courses(soup)
-
-        assert result == []
 
 
 class TestParseTodayCourses:

@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import date
 from typing import Any, Optional
 from urllib.parse import quote, urlencode
 
@@ -168,37 +169,61 @@ class CosmosClient:
         if not member_nr:
             raise BookingError("Cannot extract memberNr from memberData")
 
-        booked = self._parse_booked_courses(soup)
+        return MandantData(login_token=login_token, member_nr=str(member_nr))
 
-        return MandantData(login_token=login_token, member_nr=str(member_nr)), booked
+    async def get_booked_courses(
+        self,
+        member_nr: str,
+        login_token: str,
+    ) -> list[BookedCourse]:
+        """Fetch booked courses from the AJAX API.
 
-    @staticmethod
-    def _parse_booked_courses(soup: BeautifulSoup) -> list[BookedCourse]:
-        """Parse future bookings from the mycourses page."""
-        future = soup.find("div", class_="futureBookings")
-        if not future:
-            return []
+        Args:
+            member_nr: Member number from mandant data
+            login_token: Login token from mandant data
 
-        rows = future.find_all("tr", class_="swipeable")
-        result: list[BookedCourse] = []
-        for row in rows:
+        Returns:
+            List of BookedCourse objects
+        """
+        session = self._require_session()
+
+        params = {
+            "member_nr": member_nr,
+            "offset": "0",
+            "limit": "1000",
+            "menueOnlineGroup": "-1",
+            "loginToken": login_token,
+            "aidoomembernr": member_nr,
+            "id": self.session_id,
+        }
+        proxy_url = self._build_proxy_url("/v0001/booked_courses", params)
+
+        async with session.get(proxy_url, ssl=False) as resp:
+            text = await resp.text()
+
             try:
-                name_el = row.find("span", class_="courseName")
-                tds = row.find_all("td")
-                if not name_el or len(tds) < 3:
+                data = json.loads(text)
+            except json.JSONDecodeError as e:
+                _LOGGER.error("Failed to parse booked_courses response as JSON: %s", e)
+                _LOGGER.error("Full response text: %s", text)
+                raise
+
+        result: list[BookedCourse] = []
+        today = date.today()
+        for item in data.get("booked_courses", []):
+            try:
+                begin_str = item.get("begin", "")
+                course_date = date.fromisoformat(begin_str[:10])
+                if course_date < today:
                     continue
-
-                name = name_el.get_text(strip=True)
-                date = ""
-                time_ = ""
-                for td in tds:
-                    cls = td.get("class", [])
-                    if "showformediumup" in cls and "storno" not in cls:
-                        date = td.get_text(strip=True)
-                    if not time_ and td.get_text(strip=True) and " - " in td.get_text():
-                        time_ = td.get_text(strip=True)
-
-                result.append(BookedCourse(name=name, date=date, time=time_))
+                result.append(
+                    BookedCourse(
+                        name=item.get("course_name", ""),
+                        date=begin_str[:10],
+                        time=f"{begin_str[11:16]} - {item.get('end', '')[11:16]}",
+                        nr=item.get("t601_lfnr", 0),
+                    )
+                )
             except Exception:
                 continue
 
@@ -456,39 +481,8 @@ class CosmosClient:
         Returns:
             True if already booked
         """
-        session = self._require_session()
-
-        # Match TypeScript params exactly (includes id param)
-        params = {
-            "member_nr": member_nr,
-            "offset": "0",
-            "limit": "1000",
-            "menueOnlineGroup": "-1",
-            "loginToken": login_token,
-            "aidoomembernr": member_nr,
-            "id": self.session_id,
-        }
-        proxy_url = self._build_proxy_url("/v0001/booked_courses", params)
-
-        async with session.get(proxy_url, ssl=False) as resp:
-            # Get the response as text first (proxy returns HTML with embedded JSON)
-            text = await resp.text()
-
-            # Then parse as JSON
-            try:
-                data = json.loads(text)
-            except json.JSONDecodeError as e:
-                _LOGGER.error(f"Failed to parse booked_courses response as JSON: {e}")
-                _LOGGER.error(f"Full response text: {text}")
-                raise
-
-        booked_courses = data.get("booked_courses", [])
-
-        for booked in booked_courses:
-            if booked.get("t601_lfnr") == course.nr:
-                return True
-
-        return False
+        booked = await self.get_booked_courses(member_nr, login_token)
+        return any(b.nr == course.nr for b in booked)
 
     async def book_course(self, course: Course) -> str:
         """Book a course.

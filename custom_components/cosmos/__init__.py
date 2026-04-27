@@ -112,8 +112,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             booked_courses: list = []
             try:
-                _, booked = await client.get_mandant_data()
-                booked_courses = booked
+                mandant_data = await client.get_mandant_data()
+                booked_courses = await client.get_booked_courses(
+                    mandant_data.member_nr, mandant_data.login_token
+                )
             except Exception as err:
                 _LOGGER.warning("Failed to fetch booked courses: %s", err)
 
