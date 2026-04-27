@@ -249,6 +249,76 @@ async def test_get_workload(mock_api, config):
 
 
 @pytest.mark.asyncio
+async def test_get_today_upcoming_courses(mock_api, config):
+    """Test fetching today's upcoming courses via courseplan API"""
+    login_url = f"{BASE_URL}/login"
+    check_login_url = f"{BASE_URL}/check_login"
+
+    mock_api.get(
+        re.compile(rf"^{re.escape(login_url)}\?"),
+        status=200,
+        headers={"Set-Cookie": "PHPSESSID=test_session_id"},
+    )
+    mock_api.post(re.compile(rf"^{re.escape(check_login_url)}"), status=200)
+
+    course_data = {
+        "courses": [
+            {
+                "nr": 267078,
+                "course_name": "Fatburner",
+                "begin": "2099-04-30T17:30:00",
+                "end": "2099-04-30T18:30:00",
+                "akt_anz": 20,
+                "max_anz": 32,
+                "cancelled": 0,
+                "booked": 0,
+            },
+            {
+                "nr": 281228,
+                "course_name": "RückenFit",
+                "begin": "2099-04-27T10:00:00",
+                "end": "2099-04-27T11:00:00",
+                "akt_anz": 23,
+                "max_anz": 32,
+                "cancelled": 0,
+                "booked": 0,
+            },
+            {
+                "nr": 999,
+                "course_name": "Past Course",
+                "begin": "2020-01-15T08:00:00",
+                "end": "2020-01-15T09:00:00",
+                "akt_anz": 5,
+                "max_anz": 32,
+                "cancelled": 0,
+                "booked": 0,
+            },
+        ],
+        "count": 3,
+    }
+    mock_api.get(
+        re.compile(rf"^{re.escape(BASE_URL)}/proxy\.php"),
+        status=200,
+        payload=course_data,
+    )
+
+    async with CosmosClient(config) as client:
+        await client.login()
+        courses = await client.get_today_upcoming_courses(
+            member_nr="12345", login_token="token"
+        )
+
+        assert len(courses) == 2
+        assert courses[0].course == "Fatburner"
+        assert courses[0].participants == 20
+        assert courses[0].percentage == pytest.approx(0.62)
+        assert courses[0].start_time == "17:30"
+        assert courses[0].end_time == "18:30"
+        assert courses[1].course == "RückenFit"
+        assert courses[1].start_time == "10:00"
+
+
+@pytest.mark.asyncio
 async def test_get_booked_courses(mock_api, config):
     """Test fetching booked courses via API"""
     login_url = f"{BASE_URL}/login"

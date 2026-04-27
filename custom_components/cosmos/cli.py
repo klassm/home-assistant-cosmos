@@ -141,5 +141,41 @@ def booked() -> None:
         sys.exit(1)
 
 
+@cli.command()
+def upcoming() -> None:
+    """Display today's upcoming courses.
+
+    Fetches and displays today's courses that haven't started yet.
+    """
+    try:
+        config = load_config_from_env()
+    except CosmosError as e:
+        click.echo(f"Configuration error: {e}", err=True)
+        sys.exit(1)
+
+    async def run_get_upcoming() -> list:
+        async with CosmosClient(config) as client:
+            await client.login()
+            mandant_data = await client.get_mandant_data()
+            return await client.get_today_upcoming_courses(
+                mandant_data.member_nr, mandant_data.login_token
+            )
+
+    try:
+        courses = asyncio.run(run_get_upcoming())
+        if not courses:
+            click.echo("No upcoming courses today.")
+        else:
+            for course in courses:
+                click.echo(
+                    f"{course.start_time}-{course.end_time}  "
+                    f"{course.course}  "
+                    f"{course.participants} ({int(course.percentage * 100)}%)"
+                )
+    except CosmosError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

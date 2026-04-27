@@ -108,18 +108,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception as err:
                 _LOGGER.warning("Failed to fetch workload: %s", err)
 
+            today_upcoming_courses: list = []
             booked_courses: list = []
             try:
                 mandant_data = await client.get_mandant_data()
                 booked_courses = await client.get_booked_courses(
                     mandant_data.member_nr, mandant_data.login_token
                 )
+                today_upcoming_courses = await client.get_today_upcoming_courses(
+                    mandant_data.member_nr, mandant_data.login_token
+                )
             except Exception as err:
-                _LOGGER.warning("Failed to fetch booked courses: %s", err)
+                _LOGGER.warning("Failed to fetch course data: %s", err)
 
             return {
                 "load": {"percentage": load_data.get("percentage", 0)},
-                "today_upcoming_courses": [],
+                "today_upcoming_courses": today_upcoming_courses,
                 "booked_courses": booked_courses,
             }
 

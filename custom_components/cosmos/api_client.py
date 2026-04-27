@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 from .const import BASE_URL, PROXY_BASE_URL
 from .exceptions import AuthenticationError, BookingError
-from .models import BookedCourse, Config, Course, MandantData
+from .models import BookedCourse, Config, Course, MandantData, TodayCourse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -273,6 +273,82 @@ class CosmosClient:
             "percentage": percentage,
             "location": data.get("name", "Unknown"),
         }
+
+    async def get_today_upcoming_courses(
+        self,
+        member_nr: str,
+        login_token: str,
+    ) -> list[TodayCourse]:
+        """Get today's upcoming courses from the courseplan API.
+
+        Fetches today's courses and filters to only those that haven't
+        started yet (begin time >= now).
+
+        Args:
+            member_nr: Member number from mandant data
+            login_token: Login token from mandant data
+
+        Returns:
+            List of TodayCourse objects for today's upcoming courses
+        """
+        from datetime import datetime
+
+        session = self._require_session()
+
+        today = date.today()
+        today_str = today.strftime("%Y-%-m-%-d")
+
+        params = {
+            "show_cancelled": "0",
+            "member_nr": member_nr,
+            "since": today_str,
+            "until": today_str,
+            "stud_nr": "1",
+            "loginToken": login_token,
+            "aidoomembernr": member_nr,
+            "id": self.session_id,
+        }
+        proxy_url = self._build_proxy_url("/v0001/courseplan", params)
+
+        async with session.get(proxy_url, ssl=False) as resp:
+            text = await resp.text()
+
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as e:
+            _LOGGER.error("Failed to parse courseplan response: %s", e)
+            raise
+
+        now = datetime.now()
+        result: list[TodayCourse] = []
+        for item in data.get("courses", []):
+            try:
+                begin_str = item.get("begin", "")
+                end_str = item.get("end", "")
+                if not begin_str or not end_str:
+                    continue
+
+                begin_dt = datetime.fromisoformat(begin_str)
+                if begin_dt < now:
+                    continue
+
+                max_anz = item.get("max_anz", 0)
+                akt_anz = item.get("akt_anz", 0)
+                percentage = akt_anz / max_anz if max_anz > 0 else 0.0
+
+                result.append(
+                    TodayCourse(
+                        course=item.get("course_name", ""),
+                        participants=akt_anz,
+                        percentage=round(percentage, 2),
+                        start_time=begin_str[11:16],
+                        end_time=end_str[11:16],
+                    )
+                )
+            except Exception:
+                continue
+
+        return result
 
     def _build_proxy_url(self, path: str, params: dict[str, Any]) -> str:
         """Build proxy URL for API calls.
