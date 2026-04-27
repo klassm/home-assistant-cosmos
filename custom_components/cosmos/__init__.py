@@ -96,7 +96,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Studio closed between 22:00 and 07:00 - return 0 load
         if hour < 7 or hour >= 22:
             _LOGGER.debug("Studio closed (hour=%s), returning 0 load", hour)
-            return {"load": {"percentage": 0}, "today_courses": []}
+            return {"load": {"percentage": 0}, "today_upcoming_courses": []}
 
         # Studio open - fetch actual load and today's courses
         async with CosmosClient(config) as client:
@@ -105,7 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             upcoming_courses: list = []
             try:
-                raw_courses = load_data.get("today_courses", [])
+                raw_courses = load_data.get("today_upcoming_courses", [])
                 upcoming_courses = filter_upcoming_courses(raw_courses, now)
             except Exception as err:
                 _LOGGER.warning("Failed to process today's courses: %s", err)
@@ -119,7 +119,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             return {
                 "load": {"percentage": load_data.get("percentage", 0)},
-                "today_courses": upcoming_courses,
+                "today_upcoming_courses": upcoming_courses,
                 "booked_courses": booked_courses,
             }
 

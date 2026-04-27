@@ -28,8 +28,8 @@ SENSOR_DESCRIPTIONS = [
         icon="mdi:account-multiple",
     ),
     SensorEntityDescription(
-        key="today_courses",
-        name="Today Courses",
+        key="today_upcoming_courses",
+        name="Today Upcoming Courses",
         icon="mdi:calendar-today",
     ),
     SensorEntityDescription(
@@ -86,10 +86,11 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
             return self.coordinator.data.get("load", {}).get("percentage")
         if key == "total_participants":
             return sum(
-                c.participants for c in self.coordinator.data.get("today_courses", [])
+                c.participants
+                for c in self.coordinator.data.get("today_upcoming_courses", [])
             )
-        if key == "today_courses":
-            courses = self.coordinator.data.get("today_courses", [])
+        if key == "today_upcoming_courses":
+            courses = self.coordinator.data.get("today_upcoming_courses", [])
             return len(courses)
         if key == "booked_courses":
             return len(self.coordinator.data.get("booked_courses", []))
@@ -100,8 +101,10 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         """Return extra state attributes."""
         if self.coordinator.data is None:
             return {}
-        if self.entity_description.key == "today_courses":
-            courses: list[TodayCourse] = self.coordinator.data.get("today_courses", [])
+        if self.entity_description.key == "today_upcoming_courses":
+            courses: list[TodayCourse] = self.coordinator.data.get(
+                "today_upcoming_courses", []
+            )
             return {
                 "courses": [
                     {

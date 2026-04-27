@@ -51,10 +51,10 @@ SAMPLE_MEMBER_HOME_HTML = """
 
 
 class TestGetTodayCourses:
-    """Tests for get_today_courses via get_load"""
+    """Tests for get_today_upcoming_courses via get_load"""
 
     @pytest.mark.asyncio
-    async def test_parse_today_courses(self, mock_api, config):
+    async def test_parse_today_upcoming_courses(self, mock_api, config):
         """Test parsing today's courses from member_home page"""
         login_url = f"{BASE_URL}/login"
         check_login_url = f"{BASE_URL}/check_login"
@@ -75,7 +75,7 @@ class TestGetTodayCourses:
         async with CosmosClient(config) as client:
             await client.login()
             load_data = await client.get_load()
-            courses = load_data["today_courses"]
+            courses = load_data["today_upcoming_courses"]
 
             assert len(courses) == 2
 
@@ -125,7 +125,7 @@ class TestGetTodayCourses:
         async with CosmosClient(config) as client:
             await client.login()
             load_data = await client.get_load()
-            courses = load_data["today_courses"]
+            courses = load_data["today_upcoming_courses"]
 
             assert courses == []
 
@@ -176,7 +176,7 @@ class TestGetTodayCourses:
         async with CosmosClient(config) as client:
             await client.login()
             load_data = await client.get_load()
-            courses = load_data["today_courses"]
+            courses = load_data["today_upcoming_courses"]
 
             # Only the valid course should be returned
             assert len(courses) == 1

@@ -193,7 +193,7 @@ class CosmosClient:
                 time_ = ""
                 for td in tds:
                     cls = td.get("class", [])
-                    if "showformediumup" in cls:
+                    if "showformediumup" in cls and "storno" not in cls:
                         date = td.get_text(strip=True)
                     if not time_ and td.get_text(strip=True) and " - " in td.get_text():
                         time_ = td.get_text(strip=True)
@@ -212,7 +212,7 @@ class CosmosClient:
                 - percentage: int (0-100)
                 - time: str (HH:MM format)
                 - location: str (gym name)
-                - today_courses: list[TodayCourse]
+                - today_upcoming_courses: list[TodayCourse]
 
         Raises:
             BookingError: If load data cannot be extracted
@@ -264,17 +264,17 @@ class CosmosClient:
         time_str = time_elem.text.strip() if time_elem else ""
 
         # Extract today's courses from okvPreview section
-        today_courses = self._parse_today_courses(soup)
+        today_upcoming_courses = self._parse_today_upcoming_courses(soup)
 
         return {
             "percentage": percentage,
             "time": time_str,
             "location": location,
-            "today_courses": today_courses,
+            "today_upcoming_courses": today_upcoming_courses,
         }
 
     @staticmethod
-    def _parse_today_courses(soup: BeautifulSoup) -> list[TodayCourse]:
+    def _parse_today_upcoming_courses(soup: BeautifulSoup) -> list[TodayCourse]:
         """Parse today's courses from the okvPreview section of the page.
 
         Args:

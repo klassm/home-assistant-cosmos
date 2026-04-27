@@ -12,9 +12,9 @@ def _native_value(key: str, data: dict | None) -> int | str | None:
     if key == "load":
         return data.get("load", {}).get("percentage")
     if key == "total_participants":
-        return sum(c.participants for c in data.get("today_courses", []))
-    if key == "today_courses":
-        return len(data.get("today_courses", []))
+        return sum(c.participants for c in data.get("today_upcoming_courses", []))
+    if key == "today_upcoming_courses":
+        return len(data.get("today_upcoming_courses", []))
     if key == "booked_courses":
         return len(data.get("booked_courses", []))
     return None
@@ -24,8 +24,8 @@ def _extra_state_attributes(key: str, data: dict | None) -> dict:
     """Replicate the extra_state_attributes logic from CosmosSensor."""
     if data is None:
         return {}
-    if key == "today_courses":
-        courses: list[TodayCourse] = data.get("today_courses", [])
+    if key == "today_upcoming_courses":
+        courses: list[TodayCourse] = data.get("today_upcoming_courses", [])
         return {
             "courses": [
                 {
@@ -82,7 +82,7 @@ class TestNativeValue:
         assert (
             _native_value(
                 "total_participants",
-                {"load": {"percentage": 42}, "today_courses": courses},
+                {"load": {"percentage": 42}, "today_upcoming_courses": courses},
             )
             == 23
         )
@@ -91,7 +91,7 @@ class TestNativeValue:
         assert (
             _native_value(
                 "total_participants",
-                {"load": {"percentage": 0}, "today_courses": []},
+                {"load": {"percentage": 0}, "today_upcoming_courses": []},
             )
             == 0
         )
@@ -99,7 +99,7 @@ class TestNativeValue:
     def test_total_participants_none_data(self):
         assert _native_value("total_participants", None) is None
 
-    def test_today_courses_count(self):
+    def test_today_upcoming_courses_count(self):
         courses = [
             TodayCourse(
                 course="Yoga",
@@ -111,17 +111,17 @@ class TestNativeValue:
         ]
         assert (
             _native_value(
-                "today_courses",
-                {"load": {"percentage": 42}, "today_courses": courses},
+                "today_upcoming_courses",
+                {"load": {"percentage": 42}, "today_upcoming_courses": courses},
             )
             == 1
         )
 
-    def test_today_courses_count_empty(self):
+    def test_today_upcoming_courses_count_empty(self):
         assert (
             _native_value(
-                "today_courses",
-                {"load": {"percentage": 0}, "today_courses": []},
+                "today_upcoming_courses",
+                {"load": {"percentage": 0}, "today_upcoming_courses": []},
             )
             == 0
         )
@@ -155,7 +155,7 @@ class TestNativeValue:
 class TestExtraStateAttributes:
     """Tests for sensor extra_state_attributes logic"""
 
-    def test_today_courses_attributes(self):
+    def test_today_upcoming_courses_attributes(self):
         courses = [
             TodayCourse(
                 course="Yoga",
@@ -173,8 +173,8 @@ class TestExtraStateAttributes:
             ),
         ]
         attrs = _extra_state_attributes(
-            "today_courses",
-            {"load": {"percentage": 42}, "today_courses": courses},
+            "today_upcoming_courses",
+            {"load": {"percentage": 42}, "today_upcoming_courses": courses},
         )
 
         assert "courses" in attrs
@@ -187,28 +187,28 @@ class TestExtraStateAttributes:
         assert yoga["start_time"] == "18:00"
         assert yoga["end_time"] == "19:00"
 
-    def test_today_courses_empty(self):
+    def test_today_upcoming_courses_empty(self):
         attrs = _extra_state_attributes(
-            "today_courses",
-            {"load": {"percentage": 42}, "today_courses": []},
+            "today_upcoming_courses",
+            {"load": {"percentage": 42}, "today_upcoming_courses": []},
         )
         assert attrs["courses"] == []
 
-    def test_today_courses_none_data(self):
-        attrs = _extra_state_attributes("today_courses", None)
+    def test_today_upcoming_courses_none_data(self):
+        attrs = _extra_state_attributes("today_upcoming_courses", None)
         assert attrs == {}
 
     def test_load_no_attributes(self):
         attrs = _extra_state_attributes(
             "load",
-            {"load": {"percentage": 42}, "today_courses": []},
+            {"load": {"percentage": 42}, "today_upcoming_courses": []},
         )
         assert attrs == {}
 
     def test_total_participants_no_attributes(self):
         attrs = _extra_state_attributes(
             "total_participants",
-            {"load": {"percentage": 42}, "today_courses": []},
+            {"load": {"percentage": 42}, "today_upcoming_courses": []},
         )
         assert attrs == {}
 
