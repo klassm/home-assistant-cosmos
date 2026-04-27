@@ -329,7 +329,8 @@ class CosmosClient:
                     continue
 
                 begin_dt = datetime.fromisoformat(begin_str)
-                if begin_dt < now:
+                end_dt = datetime.fromisoformat(end_str)
+                if end_dt < now:
                     continue
 
                 max_anz = item.get("max_anz", 0)
@@ -343,6 +344,7 @@ class CosmosClient:
                         percentage=round(percentage, 2),
                         start_time=begin_str[11:16],
                         end_time=end_str[11:16],
+                        current_participants=akt_anz if begin_dt <= now else 0,
                     )
                 )
             except Exception:

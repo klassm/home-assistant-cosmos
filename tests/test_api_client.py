@@ -284,6 +284,16 @@ async def test_get_today_upcoming_courses(mock_api, config):
                 "booked": 0,
             },
             {
+                "nr": 888,
+                "course_name": "Ongoing",
+                "begin": "2020-01-15T08:00:00",
+                "end": "2099-01-15T09:00:00",
+                "akt_anz": 15,
+                "max_anz": 32,
+                "cancelled": 0,
+                "booked": 0,
+            },
+            {
                 "nr": 999,
                 "course_name": "Past Course",
                 "begin": "2020-01-15T08:00:00",
@@ -294,7 +304,7 @@ async def test_get_today_upcoming_courses(mock_api, config):
                 "booked": 0,
             },
         ],
-        "count": 3,
+        "count": 4,
     }
     mock_api.get(
         re.compile(rf"^{re.escape(BASE_URL)}/proxy\.php"),
@@ -308,14 +318,18 @@ async def test_get_today_upcoming_courses(mock_api, config):
             member_nr="12345", login_token="token"
         )
 
-        assert len(courses) == 2
+        assert len(courses) == 3
         assert courses[0].course == "Fatburner"
         assert courses[0].participants == 20
         assert courses[0].percentage == pytest.approx(0.62)
         assert courses[0].start_time == "17:30"
         assert courses[0].end_time == "18:30"
+        assert courses[0].current_participants == 0
         assert courses[1].course == "RückenFit"
         assert courses[1].start_time == "10:00"
+        assert courses[1].current_participants == 0
+        assert courses[2].course == "Ongoing"
+        assert courses[2].current_participants == 15
 
 
 @pytest.mark.asyncio

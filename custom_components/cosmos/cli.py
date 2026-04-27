@@ -145,7 +145,7 @@ def booked() -> None:
 def upcoming() -> None:
     """Display today's upcoming courses.
 
-    Fetches and displays today's courses that haven't started yet.
+    Fetches and displays today's courses that haven't ended yet.
     """
     try:
         config = load_config_from_env()
@@ -172,6 +172,46 @@ def upcoming() -> None:
                     f"{course.course}  "
                     f"{course.participants} ({int(course.percentage * 100)}%)"
                 )
+    except CosmosError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+def participants() -> None:
+    """Display current course participants.
+
+    Shows today's active courses and their current participant count.
+    """
+    try:
+        config = load_config_from_env()
+    except CosmosError as e:
+        click.echo(f"Configuration error: {e}", err=True)
+        sys.exit(1)
+
+    async def run_get_participants() -> list:
+        async with CosmosClient(config) as client:
+            await client.login()
+            mandant_data = await client.get_mandant_data()
+            return await client.get_today_upcoming_courses(
+                mandant_data.member_nr, mandant_data.login_token
+            )
+
+    try:
+        courses = asyncio.run(run_get_participants())
+        active = [c for c in courses if c.current_participants > 0]
+        if not active:
+            click.echo("No active courses right now.")
+        else:
+            total = 0
+            for course in active:
+                click.echo(
+                    f"{course.start_time}-{course.end_time}  "
+                    f"{course.course}  "
+                    f"{course.current_participants}/{course.participants}"
+                )
+                total += course.current_participants
+            click.echo(f"Total: {total}")
     except CosmosError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

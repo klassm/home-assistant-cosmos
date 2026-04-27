@@ -51,6 +51,7 @@ class TodayCourse:
     percentage: float  # 0.0 to 1.0
     start_time: str  # "HH:MM"
     end_time: str  # "HH:MM"
+    current_participants: int = 0
 
 
 @dataclass
