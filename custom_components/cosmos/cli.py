@@ -86,7 +86,7 @@ def book(course: str, day: str, time: str) -> None:
 def load() -> None:
     """Display current gym load.
 
-    Fetches and displays the current gym load percentage from the member_home page.
+    Fetches and displays the current gym load percentage from the workload API.
     """
     # Load config from .env (Parse at boundary - Law of Parse Don't Validate)
     try:
@@ -103,7 +103,39 @@ def load() -> None:
 
     try:
         result = asyncio.run(run_get_load())
-        click.echo(result["percentage"])
+        click.echo(f"{result['percentage']}% - {result['location']}")
+    except CosmosError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+def booked() -> None:
+    """Display booked courses.
+
+    Fetches and displays future booked courses from the API.
+    """
+    try:
+        config = load_config_from_env()
+    except CosmosError as e:
+        click.echo(f"Configuration error: {e}", err=True)
+        sys.exit(1)
+
+    async def run_get_booked() -> list:
+        async with CosmosClient(config) as client:
+            await client.login()
+            mandant_data = await client.get_mandant_data()
+            return await client.get_booked_courses(
+                mandant_data.member_nr, mandant_data.login_token
+            )
+
+    try:
+        courses = asyncio.run(run_get_booked())
+        if not courses:
+            click.echo("No booked courses.")
+        else:
+            for course in courses:
+                click.echo(f"{course.date}  {course.time}  {course.name}")
     except CosmosError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
