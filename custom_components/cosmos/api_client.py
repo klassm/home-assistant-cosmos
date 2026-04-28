@@ -350,7 +350,7 @@ class CosmosClient:
             except Exception:
                 continue
 
-        return result
+        return sorted(result, key=lambda c: c.start_time)
 
     def _build_proxy_url(self, path: str, params: dict[str, Any]) -> str:
         """Build proxy URL for API calls.

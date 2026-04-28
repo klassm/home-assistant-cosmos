@@ -86,7 +86,7 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
             return self.coordinator.data.get("load", {}).get("percentage")
         if key == "total_participants":
             return sum(
-                c.participants
+                c.current_participants
                 for c in self.coordinator.data.get("today_upcoming_courses", [])
             )
         if key == "today_upcoming_courses":
@@ -110,6 +110,7 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
                     {
                         "course": c.course,
                         "participants": c.participants,
+                        "current_participants": c.current_participants,
                         "percentage": c.percentage,
                         "start_time": c.start_time,
                         "end_time": c.end_time,
