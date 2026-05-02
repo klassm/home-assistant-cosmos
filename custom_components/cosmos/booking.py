@@ -123,7 +123,7 @@ async def book_course(
         - course, day, time: Booking criteria echo
     """
     # Step 1: Get mandant data
-    mandant_data, _ = await client.get_mandant_data()
+    mandant_data = await client.get_mandant_data()
 
     # Step 2: Find all courses
     courses = await client.find_courses(

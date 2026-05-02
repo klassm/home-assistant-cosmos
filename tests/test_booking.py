@@ -14,7 +14,7 @@ from custom_components.cosmos.booking import (
     is_matching_course,
 )
 from custom_components.cosmos.exceptions import BookingError
-from custom_components.cosmos.models import BookingOptions, Course
+from custom_components.cosmos.models import BookingOptions, Course, MandantData
 
 
 class TestIsBookable:
@@ -249,7 +249,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
+            return_value=MandantData(login_token="token", member_nr="12345")
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -288,7 +288,7 @@ class TestBookCourse:
         """Test booking when course not found"""
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
+            return_value=MandantData(login_token="token", member_nr="12345")
         )
         client.find_courses = AsyncMock(return_value=[])
 
@@ -307,7 +307,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
+            return_value=MandantData(login_token="token", member_nr="12345")
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -348,7 +348,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
+            return_value=MandantData(login_token="token", member_nr="12345")
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -389,7 +389,7 @@ class TestBookCourse:
 
         client = MagicMock()
         client.get_mandant_data = AsyncMock(
-            return_value=(MagicMock(login_token="token", member_nr="12345"), [])
+            return_value=MandantData(login_token="token", member_nr="12345")
         )
         client.find_courses = AsyncMock(
             return_value=[
@@ -422,3 +422,45 @@ class TestBookCourse:
         assert result["success"] is False
         assert result["reason"] == BookingReason.ERROR
         assert "Network error" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_book_course_mandant_data_not_tuple(self):
+        """Regression: get_mandant_data returns MandantData, not a tuple.
+        Unpacking like 'mandant_data, _ = ...' caused TypeError:
+        cannot unpack non-iterable MandantData object."""
+        future = datetime.now() + timedelta(days=7)
+        begin = future.replace(hour=18, minute=0, second=0, microsecond=0)
+
+        client = MagicMock()
+        client.get_mandant_data = AsyncMock(
+            return_value=MandantData(login_token="token", member_nr="12345")
+        )
+        client.find_courses = AsyncMock(
+            return_value=[
+                Course(
+                    nr=1,
+                    course_name="Yoga",
+                    begin=begin.strftime("%Y-%m-%dT%H:%M:%S"),
+                    end=(begin + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S"),
+                    booked=0,
+                    online_book_max=10,
+                    course_nr=101,
+                    course_period_begin="2024-01-01",
+                    course_period_end="2024-12-31",
+                    course_price_single="10.00",
+                    book_type="online",
+                    waitlist=0,
+                    max_anz=20,
+                    akt_anz=15,
+                )
+            ]
+        )
+        client.is_already_booked = AsyncMock(return_value=False)
+        client.book_course = AsyncMock(return_value="Successfully booked")
+
+        options = BookingOptions(
+            course="Yoga", day=begin.isoweekday(), hours=18, minutes=0
+        )
+        result = await book_course(client, options)
+
+        assert result["success"] is True
