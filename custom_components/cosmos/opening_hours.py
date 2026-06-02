@@ -40,9 +40,7 @@ def get_todays_hours(date: datetime.date) -> OpeningHours:
             return OpeningHours(
                 opening=datetime.time(8, 0), closing=datetime.time(18, 0)
             )
-        return OpeningHours(
-            opening=datetime.time(8, 0), closing=datetime.time(20, 0)
-        )
+        return OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0))
 
     weekday = date.weekday()
 
@@ -51,20 +49,12 @@ def get_todays_hours(date: datetime.date) -> OpeningHours:
             return OpeningHours(
                 opening=datetime.time(8, 0), closing=datetime.time(18, 0)
             )
-        return OpeningHours(
-            opening=datetime.time(8, 0), closing=datetime.time(20, 0)
-        )
+        return OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0))
 
     if weekday == 6:
-        return OpeningHours(
-            opening=datetime.time(8, 0), closing=datetime.time(20, 0)
-        )
+        return OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0))
 
     if weekday in (0, 2, 4):
-        return OpeningHours(
-            opening=datetime.time(7, 0), closing=datetime.time(22, 0)
-        )
+        return OpeningHours(opening=datetime.time(7, 0), closing=datetime.time(22, 0))
 
-    return OpeningHours(
-        opening=datetime.time(8, 0), closing=datetime.time(22, 0)
-    )
+    return OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(22, 0))
