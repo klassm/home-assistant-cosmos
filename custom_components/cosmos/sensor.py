@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
@@ -36,6 +37,16 @@ SENSOR_DESCRIPTIONS = [
         key="booked_courses",
         name="Booked Courses",
         icon="mdi:bookmark-check",
+    ),
+    SensorEntityDescription(
+        key="opening_time",
+        name="Opening Time",
+        icon="mdi:clock-outline",
+    ),
+    SensorEntityDescription(
+        key="closing_time",
+        name="Closing Time",
+        icon="mdi:clock-outline",
     ),
 ]
 
@@ -76,7 +87,7 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         }
 
     @property
-    def native_value(self) -> int | str | None:
+    def native_value(self) -> int | str | datetime.time | None:
         """Return the native value of the sensor."""
         if self.coordinator.data is None:
             return None
@@ -94,6 +105,10 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
             return len(courses)
         if key == "booked_courses":
             return len(self.coordinator.data.get("booked_courses", []))
+        if key == "opening_time":
+            return self.coordinator.data.get("opening_time")
+        if key == "closing_time":
+            return self.coordinator.data.get("closing_time")
         return None
 
     @property

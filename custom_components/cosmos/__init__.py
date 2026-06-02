@@ -47,6 +47,7 @@ from .const import (
     SERVICE_BOOK,
 )
 from .exceptions import CosmosError
+from .opening_hours import get_todays_hours
 from .utils import parse_weekday
 
 _LOGGER = logging.getLogger(__name__)
@@ -91,12 +92,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def async_update_data() -> dict[str, Any]:
         """Fetch data from API."""
         now = datetime.datetime.now()
-        hour = now.hour
+        today = now.date()
+        hours = get_todays_hours(today)
 
-        # Studio closed between 22:00 and 07:00 - return 0 load
-        if hour < 7 or hour >= 22:
-            _LOGGER.debug("Studio closed (hour=%s), returning 0 load", hour)
-            return {"load": {"percentage": 0}, "today_upcoming_courses": []}
+        # Studio closed outside opening hours - return 0 load
+        current_time = now.time()
+        if current_time < hours.opening or current_time >= hours.closing:
+            _LOGGER.debug(
+                "Studio closed (current=%s, open=%s-%s), returning 0 load",
+                current_time.strftime("%H:%M"),
+                hours.opening.strftime("%H:%M"),
+                hours.closing.strftime("%H:%M"),
+            )
+            return {
+                "load": {"percentage": 0},
+                "today_upcoming_courses": [],
+                "opening_time": hours.opening,
+                "closing_time": hours.closing,
+            }
 
         # Studio open - fetch actual workload and booked courses
         async with CosmosClient(config) as client:
@@ -125,6 +138,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "load": {"percentage": load_data.get("percentage", 0)},
                 "today_upcoming_courses": today_upcoming_courses,
                 "booked_courses": booked_courses,
+                "opening_time": hours.opening,
+                "closing_time": hours.closing,
             }
 
     coordinator = DataUpdateCoordinator(

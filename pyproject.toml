@@ -20,6 +20,7 @@ dev = [
     "click>=8.0.0",
     "ruff>=0.1.0",
     "voluptuous>=0.13.0",
+    "holidays>=0.50",
     "taskipy>=1.0.0",
 ]
 
