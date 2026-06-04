@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from zoneinfo import ZoneInfo
 
 from custom_components.cosmos.models import BookedCourse, TodayCourse
 
@@ -25,14 +26,14 @@ def _native_value(key: str, data: dict | None) -> int | str | datetime.datetime 
             return None
         if isinstance(opening, datetime.datetime):
             return opening
-        return datetime.datetime.combine(datetime.date.today(), opening)
+        return datetime.datetime.combine(datetime.date.today(), opening, tzinfo=ZoneInfo("Europe/Berlin"))
     if key == "closing_time":
         closing = data.get("closing_time")
         if closing is None:
             return None
         if isinstance(closing, datetime.datetime):
             return closing
-        return datetime.datetime.combine(datetime.date.today(), closing)
+        return datetime.datetime.combine(datetime.date.today(), closing, tzinfo=ZoneInfo("Europe/Berlin"))
     return None
 
 
@@ -168,18 +169,20 @@ class TestNativeValue:
         assert _native_value("booked_courses", None) is None
 
     def test_opening_time_datetime(self):
-        now = datetime.datetime.now()
-        opening = datetime.datetime.combine(now.date(), datetime.time(7, 0))
+        tz = ZoneInfo("Europe/Berlin")
+        opening = datetime.datetime.combine(datetime.date.today(), datetime.time(7, 0), tzinfo=tz)
         result = _native_value("opening_time", {"opening_time": opening})
         assert result == opening
         assert isinstance(result, datetime.datetime)
+        assert result.tzinfo is not None
 
     def test_closing_time_datetime(self):
-        now = datetime.datetime.now()
-        closing = datetime.datetime.combine(now.date(), datetime.time(22, 0))
+        tz = ZoneInfo("Europe/Berlin")
+        closing = datetime.datetime.combine(datetime.date.today(), datetime.time(22, 0), tzinfo=tz)
         result = _native_value("closing_time", {"closing_time": closing})
         assert result == closing
         assert isinstance(result, datetime.datetime)
+        assert result.tzinfo is not None
 
     def test_opening_time_none_data(self):
         assert _native_value("opening_time", None) is None

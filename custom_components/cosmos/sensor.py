@@ -11,6 +11,7 @@ from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util.dt import get_default_time_zone
 
 from .const import DOMAIN
 from .models import BookedCourse, TodayCourse
@@ -113,14 +114,14 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
                 return None
             if isinstance(opening, datetime.datetime):
                 return opening
-            return datetime.datetime.combine(datetime.date.today(), opening)
+            return datetime.datetime.combine(datetime.date.today(), opening, tzinfo=get_default_time_zone())
         if key == "closing_time":
             closing = self.coordinator.data.get("closing_time")
             if closing is None:
                 return None
             if isinstance(closing, datetime.datetime):
                 return closing
-            return datetime.datetime.combine(datetime.date.today(), closing)
+            return datetime.datetime.combine(datetime.date.today(), closing, tzinfo=get_default_time_zone())
         return None
 
     @property
