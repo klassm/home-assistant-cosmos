@@ -93,7 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Fetch data from API."""
         now = datetime.datetime.now()
         today = now.date()
-        hours = get_todays_hours(today)
+        hours = await hass.async_add_executor_job(get_todays_hours, today)
 
         # Studio closed outside opening hours - return 0 load
         current_time = now.time()

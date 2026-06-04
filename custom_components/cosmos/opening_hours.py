@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
+from functools import lru_cache
 
 import holidays
 
@@ -23,11 +24,15 @@ def _is_summer_season(date: datetime.date) -> bool:
     return _SUMMER_START <= month_day <= _SUMMER_END
 
 
+@lru_cache(maxsize=3)
 def _get_holidays(year: int) -> holidays.HolidayBase:
     by_holidays = holidays.country_holidays("DE", subdiv="BY", years=year)
     aug_holidays = holidays.country_holidays("DE", subdiv="Augsburg", years=year)
     by_holidays.update(aug_holidays)
     return by_holidays
+
+
+_get_holidays(datetime.date.today().year)
 
 
 def is_holiday(date: datetime.date) -> bool:

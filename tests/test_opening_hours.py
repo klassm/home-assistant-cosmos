@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 
-from custom_components.cosmos.opening_hours import get_todays_hours, is_holiday
+from custom_components.cosmos.opening_hours import (
+    _get_holidays,
+    get_todays_hours,
+    is_holiday,
+)
 
 
 class TestWeekdaySchedule:
@@ -97,7 +102,56 @@ class TestHolidaySchedule:
 class TestHolidaySpecificity:
     def test_friedensfest_is_augsburg_only(self):
         aug_8 = datetime.date(2026, 8, 8)
-        from custom_components.cosmos.opening_hours import _get_holidays
-
         by_holidays = _get_holidays(2026)
         assert aug_8 in by_holidays
+
+
+class TestGetHolidaysCaching:
+    def test_same_year_returns_cached_object(self):
+        result1 = _get_holidays(2026)
+        result2 = _get_holidays(2026)
+        assert result1 is result2
+
+    def test_different_years_return_different_objects(self):
+        result1 = _get_holidays(2025)
+        result2 = _get_holidays(2026)
+        assert result1 is not result2
+
+    def test_cache_is_bounded(self):
+        _get_holidays.cache_clear()
+        for year in range(2020, 2025):
+            _get_holidays(year)
+        _get_holidays(2025)
+        cache_info = _get_holidays.cache_info()
+        assert cache_info.currsize <= 3
+        _get_holidays.cache_clear()
+
+    def test_current_year_preloaded(self):
+        _get_holidays.cache_clear()
+        import importlib
+
+        import custom_components.cosmos.opening_hours as oh_mod
+
+        importlib.reload(oh_mod)
+        current_year = datetime.date.today().year
+        cache_info = oh_mod._get_holidays.cache_info()
+        assert cache_info.currsize >= 1
+        oh_mod._get_holidays(current_year)
+        after_info = oh_mod._get_holidays.cache_info()
+        assert after_info.hits > 0
+
+
+class TestGetTodaysHoursAsyncSafe:
+    async def test_works_in_async_executor(self):
+        loop = asyncio.get_event_loop()
+        today = datetime.date.today()
+        result = await loop.run_in_executor(None, get_todays_hours, today)
+        assert result.opening is not None
+        assert result.closing is not None
+        assert result.closing > result.opening
+
+    async def test_holiday_check_async_safe(self):
+        loop = asyncio.get_event_loop()
+        christmas = datetime.date(2026, 12, 25)
+        result = await loop.run_in_executor(None, is_holiday, christmas)
+        assert result is True
