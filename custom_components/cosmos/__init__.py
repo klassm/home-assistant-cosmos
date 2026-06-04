@@ -21,6 +21,7 @@ try:
     from homeassistant.exceptions import HomeAssistantError
     from homeassistant.helpers import config_validation as cv
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+    from homeassistant.util.dt import as_local
 
     HA_AVAILABLE = True
 except ImportError:
@@ -88,12 +89,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         minutes=entry.options.get("update_interval", 5)
     )
 
-    local_tz = hass.config.time_zone
-
     # Create coordinator for data updates
     async def async_update_data() -> dict[str, Any]:
         """Fetch data from API."""
-        now = datetime.datetime.now(tz=local_tz)
+        now = as_local(datetime.datetime.now())
         today = now.date()
         hours = await hass.async_add_executor_job(get_todays_hours, today)
 
@@ -109,8 +108,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return {
                 "load": {"percentage": 0},
                 "today_upcoming_courses": [],
-                "opening_time": datetime.datetime.combine(today, hours.opening, tzinfo=local_tz),
-                "closing_time": datetime.datetime.combine(today, hours.closing, tzinfo=local_tz),
+                "opening_time": as_local(datetime.datetime.combine(today, hours.opening)),
+                "closing_time": as_local(datetime.datetime.combine(today, hours.closing)),
             }
 
         # Studio open - fetch actual workload and booked courses
@@ -140,8 +139,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "load": {"percentage": load_data.get("percentage", 0)},
                 "today_upcoming_courses": today_upcoming_courses,
                 "booked_courses": booked_courses,
-                "opening_time": datetime.datetime.combine(today, hours.opening, tzinfo=local_tz),
-                "closing_time": datetime.datetime.combine(today, hours.closing, tzinfo=local_tz),
+                "opening_time": as_local(datetime.datetime.combine(today, hours.opening)),
+                "closing_time": as_local(datetime.datetime.combine(today, hours.closing)),
             }
 
     coordinator = DataUpdateCoordinator(
