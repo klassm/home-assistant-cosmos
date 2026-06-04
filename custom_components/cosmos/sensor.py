@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
@@ -41,11 +41,13 @@ SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
         key="opening_time",
         name="Opening Time",
+        device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:clock-outline",
     ),
     SensorEntityDescription(
         key="closing_time",
         name="Closing Time",
+        device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:clock-outline",
     ),
 ]
@@ -87,7 +89,7 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         }
 
     @property
-    def native_value(self) -> int | str | datetime.time | None:
+    def native_value(self) -> int | str | datetime.datetime | None:
         """Return the native value of the sensor."""
         if self.coordinator.data is None:
             return None
@@ -106,9 +108,19 @@ class CosmosSensor(CoordinatorEntity, SensorEntity):
         if key == "booked_courses":
             return len(self.coordinator.data.get("booked_courses", []))
         if key == "opening_time":
-            return self.coordinator.data.get("opening_time")
+            opening = self.coordinator.data.get("opening_time")
+            if opening is None:
+                return None
+            if isinstance(opening, datetime.datetime):
+                return opening
+            return datetime.datetime.combine(datetime.date.today(), opening)
         if key == "closing_time":
-            return self.coordinator.data.get("closing_time")
+            closing = self.coordinator.data.get("closing_time")
+            if closing is None:
+                return None
+            if isinstance(closing, datetime.datetime):
+                return closing
+            return datetime.datetime.combine(datetime.date.today(), closing)
         return None
 
     @property
