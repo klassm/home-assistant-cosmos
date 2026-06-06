@@ -96,7 +96,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         today = now.date()
         hours = await hass.async_add_executor_job(get_todays_hours, today)
 
-        # Studio closed outside opening hours - return 0 load
+        opening_time = (
+            as_local(datetime.datetime.combine(today, hours.opening))
+            if not hours.is_closed
+            else None
+        )
+        closing_time = (
+            as_local(datetime.datetime.combine(today, hours.closing))
+            if not hours.is_closed
+            else None
+        )
+
+        if hours.is_closed:
+            _LOGGER.debug("Studio closed today (holiday), returning 0 load")
+            return {
+                "load": {"percentage": 0},
+                "today_upcoming_courses": [],
+                "opening_time": opening_time,
+                "closing_time": closing_time,
+            }
+
         current_time = now.time()
         if current_time < hours.opening or current_time >= hours.closing:
             _LOGGER.debug(
@@ -108,12 +127,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return {
                 "load": {"percentage": 0},
                 "today_upcoming_courses": [],
-                "opening_time": as_local(
-                    datetime.datetime.combine(today, hours.opening)
-                ),
-                "closing_time": as_local(
-                    datetime.datetime.combine(today, hours.closing)
-                ),
+                "opening_time": opening_time,
+                "closing_time": closing_time,
             }
 
         # Studio open - fetch actual workload and booked courses
@@ -143,12 +158,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "load": {"percentage": load_data.get("percentage", 0)},
                 "today_upcoming_courses": today_upcoming_courses,
                 "booked_courses": booked_courses,
-                "opening_time": as_local(
-                    datetime.datetime.combine(today, hours.opening)
-                ),
-                "closing_time": as_local(
-                    datetime.datetime.combine(today, hours.closing)
-                ),
+                "opening_time": opening_time,
+                "closing_time": closing_time,
             }
 
     coordinator = DataUpdateCoordinator(

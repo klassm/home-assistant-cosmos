@@ -6,6 +6,7 @@ import asyncio
 import datetime
 
 from custom_components.cosmos.opening_hours import (
+    _CLOSED,
     _get_holidays,
     get_todays_hours,
     is_holiday,
@@ -69,9 +70,44 @@ class TestSaturdaySchedule:
 
 
 class TestHolidaySchedule:
-    def test_friedensfest_aug_8_summer(self):
-        assert is_holiday(datetime.date(2026, 8, 8))
-        hours = get_todays_hours(datetime.date(2026, 8, 8))
+    def test_new_years_day_closed(self):
+        assert is_holiday(datetime.date(2026, 1, 1))
+        hours = get_todays_hours(datetime.date(2026, 1, 1))
+        assert hours.is_closed
+
+    def test_epiphany(self):
+        assert is_holiday(datetime.date(2026, 1, 6))
+        hours = get_todays_hours(datetime.date(2026, 1, 6))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(20, 0)
+
+    def test_good_friday(self):
+        assert is_holiday(datetime.date(2026, 4, 3))
+        hours = get_todays_hours(datetime.date(2026, 4, 3))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(20, 0)
+
+    def test_easter_monday(self):
+        assert is_holiday(datetime.date(2026, 4, 6))
+        hours = get_todays_hours(datetime.date(2026, 4, 6))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(20, 0)
+
+    def test_labor_day(self):
+        assert is_holiday(datetime.date(2026, 5, 1))
+        hours = get_todays_hours(datetime.date(2026, 5, 1))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(20, 0)
+
+    def test_ascension_day(self):
+        assert is_holiday(datetime.date(2026, 5, 14))
+        hours = get_todays_hours(datetime.date(2026, 5, 14))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(18, 0)
+
+    def test_whit_monday(self):
+        assert is_holiday(datetime.date(2026, 5, 25))
+        hours = get_todays_hours(datetime.date(2026, 5, 25))
         assert hours.opening == datetime.time(8, 0)
         assert hours.closing == datetime.time(18, 0)
 
@@ -81,11 +117,34 @@ class TestHolidaySchedule:
         assert hours.opening == datetime.time(8, 0)
         assert hours.closing == datetime.time(18, 0)
 
-    def test_christmas_winter(self):
-        assert is_holiday(datetime.date(2026, 12, 25))
-        hours = get_todays_hours(datetime.date(2026, 12, 25))
+    def test_german_unity_day(self):
+        assert is_holiday(datetime.date(2026, 10, 3))
+        hours = get_todays_hours(datetime.date(2026, 10, 3))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(18, 0)
+
+    def test_all_saints_day(self):
+        assert is_holiday(datetime.date(2026, 11, 1))
+        hours = get_todays_hours(datetime.date(2026, 11, 1))
         assert hours.opening == datetime.time(8, 0)
         assert hours.closing == datetime.time(20, 0)
+
+    def test_christmas_day_closed(self):
+        assert is_holiday(datetime.date(2026, 12, 25))
+        hours = get_todays_hours(datetime.date(2026, 12, 25))
+        assert hours.is_closed
+
+    def test_second_day_of_christmas(self):
+        assert is_holiday(datetime.date(2026, 12, 26))
+        hours = get_todays_hours(datetime.date(2026, 12, 26))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(20, 0)
+
+    def test_friedensfest_aug_8_summer(self):
+        assert is_holiday(datetime.date(2026, 8, 8))
+        hours = get_todays_hours(datetime.date(2026, 8, 8))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(18, 0)
 
     def test_holiday_on_sunday_uses_holiday_hours(self):
         all_saints = datetime.date(2026, 11, 1)
@@ -97,6 +156,51 @@ class TestHolidaySchedule:
 
     def test_not_holiday(self):
         assert not is_holiday(datetime.date(2026, 6, 1))
+
+    def test_unknown_holiday_falls_back_winter(self):
+        assert is_holiday(datetime.date(2026, 8, 8))
+        unknown_winter_holiday = datetime.date(2026, 12, 8)
+        assert not is_holiday(unknown_winter_holiday)
+
+
+class TestAdditionalHolidays:
+    def test_mariae_himmelfahrt(self):
+        assert is_holiday(datetime.date(2026, 8, 15))
+        hours = get_todays_hours(datetime.date(2026, 8, 15))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(18, 0)
+
+    def test_heilig_abend(self):
+        assert is_holiday(datetime.date(2026, 12, 24))
+        hours = get_todays_hours(datetime.date(2026, 12, 24))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(14, 0)
+
+    def test_silvester(self):
+        assert is_holiday(datetime.date(2026, 12, 31))
+        hours = get_todays_hours(datetime.date(2026, 12, 31))
+        assert hours.opening == datetime.time(8, 0)
+        assert hours.closing == datetime.time(14, 0)
+
+    def test_not_additional_holiday(self):
+        assert not is_holiday(datetime.date(2026, 8, 16))
+
+
+class TestIsClosed:
+    def test_closed_sentinel(self):
+        assert _CLOSED.is_closed
+
+    def test_new_years_day_is_closed(self):
+        hours = get_todays_hours(datetime.date(2026, 1, 1))
+        assert hours.is_closed is True
+
+    def test_christmas_day_is_closed(self):
+        hours = get_todays_hours(datetime.date(2026, 12, 25))
+        assert hours.is_closed is True
+
+    def test_normal_day_not_closed(self):
+        hours = get_todays_hours(datetime.date(2026, 6, 1))
+        assert hours.is_closed is False
 
 
 class TestHolidaySpecificity:
