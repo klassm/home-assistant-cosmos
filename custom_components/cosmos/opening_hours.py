@@ -27,16 +27,34 @@ _CLOSED = OpeningHours(opening=datetime.time(0, 0), closing=datetime.time(0, 0))
 _HOLIDAY_HOURS: dict[str, OpeningHours] = {
     "New Year's Day": _CLOSED,
     "Epiphany": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0)),
-    "Good Friday": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0)),
-    "Easter Monday": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0)),
-    "Labor Day": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0)),
-    "Ascension Day": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(18, 0)),
-    "Whit Monday": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(18, 0)),
-    "Corpus Christi": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(18, 0)),
-    "German Unity Day": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(18, 0)),
-    "All Saints' Day": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0)),
+    "Good Friday": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(20, 0)
+    ),
+    "Easter Monday": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(20, 0)
+    ),
+    "Labor Day": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(20, 0)
+    ),
+    "Ascension Day": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(18, 0)
+    ),
+    "Whit Monday": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(18, 0)
+    ),
+    "Corpus Christi": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(18, 0)
+    ),
+    "German Unity Day": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(18, 0)
+    ),
+    "All Saints' Day": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(20, 0)
+    ),
     "Christmas Day": _CLOSED,
-    "Second Day of Christmas": OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0)),
+    "Second Day of Christmas": OpeningHours(
+        opening=datetime.time(8, 0), closing=datetime.time(20, 0)
+    ),
 }
 
 _ADDITIONAL_HOLIDAYS: dict[tuple[int, int], OpeningHours] = {
@@ -63,7 +81,10 @@ _get_holidays(datetime.date.today().year)
 
 
 def is_holiday(date: datetime.date) -> bool:
-    return date in _get_holidays(date.year) or (date.month, date.day) in _ADDITIONAL_HOLIDAYS
+    return (
+        date in _get_holidays(date.year)
+        or (date.month, date.day) in _ADDITIONAL_HOLIDAYS
+    )
 
 
 def get_todays_hours(date: datetime.date) -> OpeningHours:
@@ -77,7 +98,9 @@ def get_todays_hours(date: datetime.date) -> OpeningHours:
         if name in _HOLIDAY_HOURS:
             return _HOLIDAY_HOURS[name]
         if _is_summer_season(date):
-            return OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(18, 0))
+            return OpeningHours(
+                opening=datetime.time(8, 0), closing=datetime.time(18, 0)
+            )
         return OpeningHours(opening=datetime.time(8, 0), closing=datetime.time(20, 0))
 
     weekday = date.weekday()
