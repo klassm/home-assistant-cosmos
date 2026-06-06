@@ -108,8 +108,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return {
                 "load": {"percentage": 0},
                 "today_upcoming_courses": [],
-                "opening_time": as_local(datetime.datetime.combine(today, hours.opening)),
-                "closing_time": as_local(datetime.datetime.combine(today, hours.closing)),
+                "opening_time": as_local(
+                    datetime.datetime.combine(today, hours.opening)
+                ),
+                "closing_time": as_local(
+                    datetime.datetime.combine(today, hours.closing)
+                ),
             }
 
         # Studio open - fetch actual workload and booked courses
@@ -139,8 +143,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "load": {"percentage": load_data.get("percentage", 0)},
                 "today_upcoming_courses": today_upcoming_courses,
                 "booked_courses": booked_courses,
-                "opening_time": as_local(datetime.datetime.combine(today, hours.opening)),
-                "closing_time": as_local(datetime.datetime.combine(today, hours.closing)),
+                "opening_time": as_local(
+                    datetime.datetime.combine(today, hours.opening)
+                ),
+                "closing_time": as_local(
+                    datetime.datetime.combine(today, hours.closing)
+                ),
             }
 
     coordinator = DataUpdateCoordinator(
